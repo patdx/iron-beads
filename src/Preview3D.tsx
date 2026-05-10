@@ -1,5 +1,6 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useMemo } from 'react'
 import * as THREE from 'three'
+import { buildBeadPositions } from './preview/bead-positions'
 
 type Layer = { name: string; rows: string[] }
 
@@ -12,9 +13,12 @@ type Preview3DProps = {
 const BEAD_RADIUS = 0.45
 const BEAD_HEIGHT = 0.8
 const BEAD_SEGMENTS = 8
-const LAYER_GAP = 1.2
 
 export default function Preview3D({ layers, palette }: Preview3DProps) {
+  const positions = useMemo(
+    () => buildBeadPositions(layers, palette),
+    [layers, palette],
+  )
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
@@ -131,16 +135,7 @@ export default function Preview3D({ layers, palette }: Preview3DProps) {
 
     group.clear()
 
-    const maxRowLen = Math.max(
-      ...layers.flatMap((l) => l.rows.map((r) => r.length)),
-      0,
-    )
-    const maxRows = Math.max(...layers.map((l) => l.rows.length), 0)
-
-    if (maxRowLen === 0 || maxRows === 0) return
-
-    const centerX = (maxRowLen - 1) / 2
-    const centerY = (maxRows - 1) / 2
+    if (positions.length === 0) return
 
     const geometry = new THREE.CylinderGeometry(
       BEAD_RADIUS,
@@ -149,30 +144,18 @@ export default function Preview3D({ layers, palette }: Preview3DProps) {
       BEAD_SEGMENTS,
     )
 
-    layers.forEach((layer, layerIndex) => {
-      layer.rows.forEach((row, rowIndex) => {
-        ;[...row].forEach((char, colIndex) => {
-          if (char === '.' || !palette[char]) return
+    for (const pos of positions) {
+      const material = new THREE.MeshLambertMaterial({ color: pos.color })
+      const bead = new THREE.Mesh(geometry, material)
 
-          const material = new THREE.MeshLambertMaterial({
-            color: palette[char],
-          })
-          const bead = new THREE.Mesh(geometry, material)
+      bead.position.set(pos.x, pos.y, pos.z)
 
-          bead.position.set(
-            colIndex - centerX,
-            layerIndex * LAYER_GAP,
-            rowIndex - centerY,
-          )
+      bead.castShadow = true
+      bead.receiveShadow = true
 
-          bead.castShadow = true
-          bead.receiveShadow = true
-
-          group.add(bead)
-        })
-      })
-    })
-  }, [layers, palette])
+      group.add(bead)
+    }
+  }, [positions])
 
   useEffect(() => {
     const container = containerRef.current
