@@ -1,23 +1,23 @@
-import type { StorageBackend } from "./types";
+import type { StorageBackend } from './types'
 
 export class LocalStorageAdapter implements StorageBackend {
   getItem(key: string): string | null {
     try {
-      return localStorage.getItem(key);
+      return localStorage.getItem(key)
     } catch {
-      return null;
+      return null
     }
   }
 
   setItem(key: string, value: string): void {
     try {
-      localStorage.setItem(key, value);
+      localStorage.setItem(key, value)
     } catch {}
   }
 
   removeItem(key: string): void {
     try {
-      localStorage.removeItem(key);
+      localStorage.removeItem(key)
     } catch {}
   }
 }
