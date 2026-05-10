@@ -1,6 +1,7 @@
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePaintStroke } from "./hooks/usePaintStroke";
 import QRCode from "qrcode";
+import BeadGrid from "./components/BeadGrid";
 import IsometricPreview from "./IsometricPreview";
 import { createAppStorage, encodeShare } from "./storage";
 import { parseTemplate, serialize, paintBead, nonEmptyKeys, type Layer } from "./template";
@@ -106,70 +107,15 @@ function LayerView({
   onBeadPointerDown?: (li: number, ri: number, ci: number, e: React.MouseEvent) => void;
   onBeadPointerEnter?: (li: number, ri: number, ci: number) => void;
 }) {
-  const width = Math.max(...layer.rows.map((r) => r.length), 0);
-  const showLabels = beadSize >= 12;
-
   return (
-    <div
-      className="grid"
-      style={{ gridTemplateColumns: `26px repeat(${width}, ${beadSize}px)` }}
-    >
-      <div className="grid-header" />
-      {Array.from({ length: width }, (_, i) => (
-        <div
-          key={`c${i}`}
-          className="grid-header"
-          style={{ width: beadSize, height: Math.max(18, Math.round(beadSize * 0.6)) }}
-        >
-          {i + 1}
-        </div>
-      ))}
-
-      {layer.rows.map((row, y) => (
-        <div key={`row-${y}`} className="grid-row-wrapper" style={{ display: "contents" }}>
-          <div className="grid-header" style={{ width: 26, height: beadSize }}>
-            {y + 1}
-          </div>
-          {[...row].map((char, x) => {
-            const isEmpty = char === ".";
-            const color = isEmpty ? "transparent" : palette[char] || "#999";
-            return (
-              <div
-                key={`${x}-${y}`}
-                className={`bead${isEmpty ? " empty" : " filled"}`}
-                style={
-                  {
-                    width: beadSize,
-                    height: beadSize,
-                    background: bwMode
-                      ? isEmpty
-                        ? "transparent"
-                        : "#222"
-                      : color,
-                    fontSize: Math.max(8, Math.round(beadSize * 0.42)),
-                    color: bwMode ? "#fff" : "#222",
-                    border: isEmpty
-                      ? "1px solid #e0e0e0"
-                      : bwMode
-                        ? "1px solid #555"
-                        : "1px solid rgba(0,0,0,0.08)",
-                  } as CSSProperties
-                }
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onBeadPointerDown?.(layerIndex, y, x, e);
-                }}
-                onMouseEnter={() => onBeadPointerEnter?.(layerIndex, y, x)}
-              >
-                {!isEmpty && showLabels && (
-                  <span className="bead-label">{char}</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
+    <BeadGrid
+      rows={layer.rows}
+      palette={palette}
+      beadSize={beadSize}
+      bwMode={bwMode}
+      onBeadPointerDown={(r, c, e) => onBeadPointerDown?.(layerIndex, r, c, e)}
+      onBeadPointerEnter={(r, c) => onBeadPointerEnter?.(layerIndex, r, c)}
+    />
   );
 }
 
@@ -1343,46 +1289,14 @@ export default function App() {
                 <div className="print-layer-title">
                   {layer.name} ({w} &times; {layer.rows.length})
                 </div>
-                <div
-                  className="grid print-grid"
-                  style={{ gridTemplateColumns: `24px repeat(${w}, 20px)` }}
-                >
-                  <div className="grid-header" />
-                  {Array.from({ length: w }, (_, i) => (
-                    <div key={`pc${i}`} className="grid-header" style={{ width: 20, height: 16 }}>
-                      {i + 1}
-                    </div>
-                  ))}
-                  {layer.rows.map((row, y) => (
-                    <div key={`pr${y}`} style={{ display: "contents" }}>
-                      <div className="grid-header" style={{ width: 24, height: 20 }}>
-                        {y + 1}
-                      </div>
-                      {[...row].map((char, x) => {
-                        const isEmpty = char === ".";
-                        const color = isEmpty ? "transparent" : parsed.palette[char] || "#999";
-                        return (
-                          <div
-                            key={`p${x}-${y}`}
-                            className={`bead${isEmpty ? " empty" : " filled"}`}
-                            style={
-                              {
-                                width: 20,
-                                height: 20,
-                                background: bwMode ? (isEmpty ? "transparent" : "#222") : color,
-                                fontSize: 9,
-                                color: bwMode ? "#fff" : "#222",
-                                border: isEmpty ? "1px solid #ddd" : "1px solid rgba(0,0,0,0.12)",
-                              } as CSSProperties
-                            }
-                          >
-                            {!isEmpty && <span className="bead-label">{char}</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
+                <BeadGrid
+                  rows={layer.rows}
+                  palette={parsed.palette}
+                  beadSize={20}
+                  bwMode={bwMode}
+                  showLabels={true}
+                  gridClassName="print-grid"
+                />
               </div>
             );
           })}
