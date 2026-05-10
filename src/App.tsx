@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePaintStroke } from './hooks/usePaintStroke'
-import { useHistory } from './hooks/useHistory'
+import { useTemplateEditor } from './hooks/useTemplateEditor'
 import QRCode from 'qrcode'
 import './styles.css'
 import BeadGrid from './components/BeadGrid'
 import Preview3D from './Preview3D'
 import { createAppStorage, encodeShare, readHashSource } from './storage'
-import {
-  parseTemplate,
-  serialize,
-  paintBead,
-  nonEmptyKeys,
-  type Layer,
-} from './template'
+import { nonEmptyKeys } from './template'
 
 const DEFAULT_FILE = `# COLORS
 . empty
@@ -98,44 +92,20 @@ function getHex(color: string): string {
   return color
 }
 
-function LayerView({
-  layer,
-  palette,
-  beadSize,
-  bwMode,
-  layerIndex,
-  onBeadPointerDown,
-  onBeadPointerEnter,
-}: {
-  layer: Layer
-  palette: Record<string, string>
-  beadSize: number
-  bwMode: boolean
-  layerIndex: number
-  onBeadPointerDown?: (
-    li: number,
-    ri: number,
-    ci: number,
-    e: React.MouseEvent,
-  ) => void
-  onBeadPointerEnter?: (li: number, ri: number, ci: number) => void
-}) {
-  return (
-    <BeadGrid
-      rows={layer.rows}
-      palette={palette}
-      beadSize={beadSize}
-      bwMode={bwMode}
-      onBeadPointerDown={(r, c, e) => onBeadPointerDown?.(layerIndex, r, c, e)}
-      onBeadPointerEnter={(r, c) => onBeadPointerEnter?.(layerIndex, r, c)}
-    />
-  )
-}
-
 export default function App() {
-  const [source, setSource] = useState(
-    () => storage.getItem('source') ?? DEFAULT_FILE,
-  )
+  const initialSource = storage.getItem('source') ?? DEFAULT_FILE
+  const {
+    source,
+    parsed,
+    canUndo,
+    canRedo,
+    editSource: editSource_,
+    paintAt,
+    endStroke,
+    undo: editorUndo,
+    redo: editorRedo,
+  } = useTemplateEditor(initialSource, storage)
+
   const [notes, setNotes] = useState(() => storage.getItem('notes') ?? '')
   const [zoom, setZoom] = useState(100)
   const [bwMode, setBwMode] = useState(false)
@@ -151,44 +121,12 @@ export default function App() {
   >({})
   const [activeColor, setActiveColor] = useState('Y')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const sourceRef = useRef(source)
 
   useEffect(() => {
     readHashSource().then((decoded) => {
-      if (decoded) {
-        setSource(decoded)
-        sourceRef.current = decoded
-      }
+      if (decoded) editSource_(decoded)
     })
   }, [])
-
-  const {
-    push: pushHistory,
-    undo: hookUndo,
-    redo: hookRedo,
-    canUndo,
-    canRedo,
-  } = useHistory(storage.getItem('source') ?? DEFAULT_FILE)
-
-  const undo = useCallback(() => {
-    const val = hookUndo()
-    if (val !== undefined) {
-      setSource(val)
-      sourceRef.current = val
-      storage.setItem('source', val)
-    }
-  }, [hookUndo])
-
-  const redo = useCallback(() => {
-    const val = hookRedo()
-    if (val !== undefined) {
-      setSource(val)
-      sourceRef.current = val
-      storage.setItem('source', val)
-    }
-  }, [hookRedo])
-
-  const parsed = useMemo(() => parseTemplate(source), [source])
 
   const baseBeadSize = 22
   const beadSize = Math.max(6, Math.round(baseBeadSize * (zoom / 100)))
@@ -212,10 +150,6 @@ export default function App() {
   }, [nonEmptyKeysList, activeColor])
 
   useEffect(() => {
-    sourceRef.current = source
-  }, [source])
-
-  useEffect(() => {
     storage.setItem('notes', notes)
   }, [notes])
 
@@ -223,21 +157,14 @@ export default function App() {
     document.body.classList.toggle('bw-mode', bwMode)
   }, [bwMode])
 
-  const updateSource = useCallback(
-    (value: string, silent?: boolean) => {
-      setSource(value)
-      sourceRef.current = value
-      storage.setItem('source', value)
-      if (!silent) pushHistory(value)
-    },
-    [pushHistory],
-  )
-
   const handleFileOpen = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => updateSource(String(reader.result))
+    reader.onload = () => {
+      editSource_(String(reader.result))
+      endStroke()
+    }
     reader.readAsText(file)
     e.target.value = ''
   }
@@ -253,33 +180,17 @@ export default function App() {
   }
 
   const handleNew = () => {
-    updateSource('# COLORS\n. empty\n\n# LAYER 1\n....\n....\n')
+    editSource_('# COLORS\n. empty\n\n# LAYER 1\n....\n....\n')
+    endStroke()
     setNotes('')
     setSelectedLayerIndex(0)
     setZoom(100)
   }
 
-  const templateRef = useRef(parsed)
-
-  useEffect(() => {
-    templateRef.current = parsed
-  }, [parsed])
-
-  const applyPaint = useCallback(
-    (layerIdx: number, rowIdx: number, colIdx: number, target: string) => {
-      const t = templateRef.current
-      const next = paintBead(t, layerIdx, rowIdx, colIdx, target)
-      if (next === t) return
-      templateRef.current = next
-      updateSource(serialize(next), true)
-    },
-    [updateSource],
-  )
-
   const { onBeadPointerDown, onBeadPointerEnter } = usePaintStroke(
     activeColor,
-    applyPaint,
-    () => pushHistory(sourceRef.current),
+    paintAt,
+    endStroke,
   )
 
   useEffect(() => {
@@ -360,10 +271,10 @@ export default function App() {
             Save
           </button>
           <div className="toolbar-sep" />
-          <button className="tb" onClick={undo} disabled={!canUndo}>
+          <button className="tb" onClick={editorUndo} disabled={!canUndo}>
             &#x21B6; Undo
           </button>
-          <button className="tb" onClick={redo} disabled={!canRedo}>
+          <button className="tb" onClick={editorRedo} disabled={!canRedo}>
             &#x21B7; Redo
           </button>
           <div className="toolbar-sep" />
@@ -415,7 +326,7 @@ export default function App() {
                 <textarea
                   className="source-textarea"
                   value={source}
-                  onChange={(e) => updateSource(e.target.value)}
+                  onChange={(e) => editSource_(e.target.value)}
                   spellCheck={false}
                 />
               ) : (
@@ -486,14 +397,17 @@ export default function App() {
                   />
                 </div>
               ) : selectedLayer && isLayerVisible(safeLayerIndex) ? (
-                <LayerView
-                  layer={selectedLayer}
+                <BeadGrid
+                  rows={selectedLayer.rows}
                   palette={parsed.palette}
                   beadSize={beadSize}
                   bwMode={bwMode}
-                  layerIndex={safeLayerIndex}
-                  onBeadPointerDown={onBeadPointerDown}
-                  onBeadPointerEnter={onBeadPointerEnter}
+                  onBeadPointerDown={(r, c, e) =>
+                    onBeadPointerDown(safeLayerIndex, r, c, e)
+                  }
+                  onBeadPointerEnter={(r, c) =>
+                    onBeadPointerEnter(safeLayerIndex, r, c)
+                  }
                 />
               ) : (
                 <div style={{ color: '#999', fontSize: 13 }}>
