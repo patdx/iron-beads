@@ -2,21 +2,7 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import QRCode from "qrcode";
 import IsometricPreview from "./IsometricPreview";
 import { createAppStorage, encodeShare } from "./storage";
-
-type Layer = {
-  name: string;
-  rows: string[];
-};
-
-type ParsedFile = {
-  palette: Record<string, string>;
-  layers: Layer[];
-};
-
-type LayerLineMap = {
-  name: string;
-  rows: { lineIndex: number; text: string }[];
-}[];
+import { parseTemplate, serialize, paintBead, nonEmptyKeys, type Layer } from "./template";
 
 const DEFAULT_FILE = `# COLORS
 . empty
@@ -72,70 +58,6 @@ C gold
 `;
 
 const storage = createAppStorage(DEFAULT_FILE);
-
-function parseTemplate(input: string): ParsedFile {
-  const lines = input.split("\n");
-  const palette: Record<string, string> = {};
-  const layers: Layer[] = [];
-  let currentLayer: Layer | null = null;
-
-  for (const rawLine of lines) {
-    const line = rawLine.trimEnd();
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    if (trimmed === "---") {
-      currentLayer = null;
-      continue;
-    }
-    if (trimmed.startsWith("#")) {
-      const heading = trimmed.match(/^#\s+(.+)/);
-      if (heading && !heading[1]!.toLowerCase().startsWith("colors")) {
-        currentLayer = { name: heading[1]!, rows: [] };
-        layers.push(currentLayer);
-      }
-      continue;
-    }
-    const paletteMatch = trimmed.match(/^(\S)\s+(.+)$/);
-    if (paletteMatch && trimmed.length < 40 && (!currentLayer || /^[^.]*$/.test(trimmed.slice(2)))) {
-      const [, key, value] = paletteMatch;
-      palette[key!] = value!;
-      continue;
-    }
-    if (currentLayer) {
-      currentLayer.rows.push(trimmed);
-    }
-  }
-
-  return { palette, layers };
-}
-
-function findLayerLineMap(source: string): LayerLineMap {
-  const lines = source.split("\n");
-  const result: LayerLineMap = [];
-  let current: (typeof result)[0] | null = null;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    if (trimmed === "---") {
-      current = null;
-      continue;
-    }
-    if (trimmed.startsWith("#")) {
-      const m = trimmed.match(/^#\s+(.+)/);
-      if (m && !m[1]!.toLowerCase().startsWith("colors")) {
-        current = { name: m[1]!, rows: [] };
-        result.push(current);
-      }
-      continue;
-    }
-    if (current) {
-      current.rows.push({ lineIndex: i, text: line });
-    }
-  }
-  return result;
-}
 
 const _hexCache: Record<string, string> = {};
 function getHex(color: string): string {
@@ -287,16 +209,13 @@ export default function App() {
 
   const selectedLayer = parsed.layers[safeLayerIndex];
 
-  const nonEmptyKeys = useMemo(
-    () => Object.keys(parsed.palette).filter((k) => k !== "."),
-    [parsed.palette],
-  );
+  const nonEmptyKeysList = useMemo(() => nonEmptyKeys(parsed), [parsed]);
 
   useEffect(() => {
-    if (nonEmptyKeys.length > 0 && !nonEmptyKeys.includes(activeColor)) {
-      setActiveColor(nonEmptyKeys[0]!);
+    if (nonEmptyKeysList.length > 0 && !nonEmptyKeysList.includes(activeColor)) {
+      setActiveColor(nonEmptyKeysList[0]!);
     }
-  }, [nonEmptyKeys, activeColor]);
+  }, [nonEmptyKeysList, activeColor]);
 
   useEffect(() => {
     sourceRef.current = source;
@@ -390,21 +309,19 @@ export default function App() {
     setZoom(100);
   };
 
+  const templateRef = useRef(parsed);
+
+  useEffect(() => {
+    templateRef.current = parsed;
+  }, [parsed]);
+
   const applyPaint = useCallback(
     (layerIdx: number, rowIdx: number, colIdx: number, target: string) => {
-      const src = sourceRef.current;
-      const locs = findLayerLineMap(src);
-      const layer = locs[layerIdx];
-      const row = layer?.rows[rowIdx];
-      if (!row) return;
-      const lines = src.split("\n");
-      const line = lines[row.lineIndex]!;
-      const padded = line.padEnd(colIdx + 1, ".");
-      const chars = [...padded];
-      if ((chars[colIdx] || ".") === target) return;
-      chars[colIdx] = target;
-      lines[row.lineIndex] = chars.join("");
-      updateSource(lines.join("\n"), true);
+      const t = templateRef.current;
+      const next = paintBead(t, layerIdx, rowIdx, colIdx, target);
+      if (next === t) return;
+      templateRef.current = next;
+      updateSource(serialize(next), true);
     },
     [updateSource],
   );
