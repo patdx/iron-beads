@@ -7,6 +7,9 @@ import BeadGrid from './components/BeadGrid'
 import Preview3D from './Preview3D'
 import { createAppStorage, encodeShare, readHashSource } from './storage'
 import { nonEmptyKeys } from './template'
+import { DOMColorResolver } from './color'
+
+const colorResolver = new DOMColorResolver()
 
 const DEFAULT_FILE = `# COLORS
 . empty
@@ -62,35 +65,6 @@ C gold
 `
 
 const storage = createAppStorage(DEFAULT_FILE)
-
-const _hexCache: Record<string, string> = {}
-function getHex(color: string): string {
-  if (_hexCache[color]) return _hexCache[color]
-  if (color.startsWith('#') && (color.length === 4 || color.length === 7)) {
-    _hexCache[color] = color.toUpperCase()
-    return _hexCache[color]
-  }
-  const div = document.createElement('div')
-  div.style.color = color
-  div.style.position = 'absolute'
-  div.style.visibility = 'hidden'
-  document.body.appendChild(div)
-  const computed = getComputedStyle(div).color
-  document.body.removeChild(div)
-  const match = computed.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
-  if (match) {
-    const hex =
-      '#' +
-      [1, 2, 3]
-        .map((i) => parseInt(match[i]!).toString(16).padStart(2, '0'))
-        .join('')
-        .toUpperCase()
-    _hexCache[color] = hex
-    return hex
-  }
-  _hexCache[color] = color
-  return color
-}
 
 export default function App() {
   const initialSource = storage.getItem('source') ?? DEFAULT_FILE
@@ -445,7 +419,7 @@ export default function App() {
                     <span className="palette-key">{key}</span>
                     <span className="palette-name">{color}</span>
                     {key !== '.' && (
-                      <span className="palette-hex">{getHex(color)}</span>
+                      <span className="palette-hex">{colorResolver.resolve(color)}</span>
                     )}
                   </div>
                 ))}
