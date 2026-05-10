@@ -1,0 +1,8 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "iron-beads",
+  "compatibility_date": "2025-05-10",
+  "assets": {
+    "directory": "./dist"
+  }
+}
