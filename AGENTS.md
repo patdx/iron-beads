@@ -33,7 +33,11 @@
 ### Storage (`src/storage/`)
 - `CompositeStorage` chains backends in order: **URL hash → localStorage → defaults**.
 - On read, tries each in sequence; on write, writes to all.
-- URL hash uses base64-encoded template data (`encodeShare`/`decodeShare`).
+- `encodeShare`/`decodeShare` use a custom binary format + deflate + base64url.
+- Binary format: 6-byte header (magic `0x4942`, version, color count, layer count) → palette entries (key+name pairs, `.` is implicit index 0) → per-layer (name, h×w, packed pixel indices). See `binary-codec.ts`.
+- Backward compatible: `decodeShare` auto-detects old base64(utf8) hashes by checking magic bytes.
+- `UrlHashAdapter` uses sync base64 for the session hash; `readHashSource()` does async decode for shared links.
+- Uses `deflate-raw` (not brotli) because `CompressionStream` doesn't support brotli in Chrome. Switch to `'br'` if/when browser support lands.
 
 ### History (`src/hooks/useHistory.ts`)
 - Undo/redo has a **500ms debounce** before pushing state. Max 200 entries. Rapid paint strokes coalesce into one undo step.

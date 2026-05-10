@@ -5,7 +5,7 @@ import QRCode from 'qrcode'
 import './styles.css'
 import BeadGrid from './components/BeadGrid'
 import Preview3D from './Preview3D'
-import { createAppStorage, encodeShare } from './storage'
+import { createAppStorage, encodeShare, readHashSource } from './storage'
 import {
   parseTemplate,
   serialize,
@@ -139,7 +139,6 @@ export default function App() {
   const [notes, setNotes] = useState(() => storage.getItem('notes') ?? '')
   const [zoom, setZoom] = useState(100)
   const [bwMode, setBwMode] = useState(false)
-  const [showQr, setShowQr] = useState(false)
   const [qrSvg, setQrSvg] = useState<string | null>(null)
   const [printQrSvg, setPrintQrSvg] = useState<string | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
@@ -153,6 +152,15 @@ export default function App() {
   const [activeColor, setActiveColor] = useState('Y')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sourceRef = useRef(source)
+
+  useEffect(() => {
+    readHashSource().then((decoded) => {
+      if (decoded) {
+        setSource(decoded)
+        sourceRef.current = decoded
+      }
+    })
+  }, [])
 
   const {
     push: pushHistory,
@@ -274,42 +282,33 @@ export default function App() {
     () => pushHistory(sourceRef.current),
   )
 
-  const generateShare = useCallback(async () => {
-    const encoded = encodeShare(source)
-    const url = `${window.location.origin}${window.location.pathname}#${encoded}`
-    window.location.hash = encoded
-    try {
-      const svg = await QRCode.toString(url, {
-        type: 'svg',
-        width: 160,
-        margin: 1,
-        color: { dark: '#000', light: '#fff' },
-      })
-      setQrSvg(svg)
-    } catch {
-      setQrSvg(null)
-    }
-    setShareUrl(url)
-    setShowQr(true)
-    setCopied(false)
-  }, [source])
-
   useEffect(() => {
     const timer = setTimeout(async () => {
-      const encoded = encodeShare(source)
+      const encoded = await encodeShare(source)
       const url = `${window.location.origin}${window.location.pathname}#${encoded}`
+      setShareUrl(url)
       try {
-        const svg = await QRCode.toString(url, {
-          type: 'svg',
-          width: 150,
-          margin: 1,
-          color: { dark: '#000', light: '#fff' },
-        })
-        setPrintQrSvg(svg)
+        const [screenSvg, printSvg] = await Promise.all([
+          QRCode.toString(url, {
+            type: 'svg',
+            width: 160,
+            margin: 1,
+            color: { dark: '#000', light: '#fff' },
+          }),
+          QRCode.toString(url, {
+            type: 'svg',
+            width: 150,
+            margin: 1,
+            color: { dark: '#000', light: '#fff' },
+          }),
+        ])
+        setQrSvg(screenSvg)
+        setPrintQrSvg(printSvg)
       } catch {
+        setQrSvg(null)
         setPrintQrSvg(null)
       }
-    }, 1000)
+    }, 500)
     return () => clearTimeout(timer)
   }, [source])
 
@@ -390,13 +389,6 @@ export default function App() {
           <div style={{ flex: 1 }} />
           <button className="tb" onClick={() => window.print()}>
             Print
-          </button>
-          <button
-            className="tb"
-            style={{ color: '#2563eb' }}
-            onClick={generateShare}
-          >
-            Share
           </button>
         </div>
 
@@ -610,41 +602,36 @@ export default function App() {
               {/* SHARE */}
               <div className="section">
                 <div className="section-title">Share</div>
-                {showQr && shareUrl ? (
-                  <>
-                    <div className="share-row">
-                      <input
-                        className="share-input"
-                        readOnly
-                        value={shareUrl}
-                        onClick={(e) => (e.target as HTMLInputElement).select()}
-                      />
-                      <button
-                        className={`share-btn${copied ? ' success' : ''}`}
-                        onClick={() => {
-                          navigator.clipboard.writeText(shareUrl)
-                          setCopied(true)
-                          setTimeout(() => setCopied(false), 2000)
-                        }}
-                      >
-                        {copied ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
-                    {qrSvg && (
-                      <div
-                        className="qr-wrap"
-                        dangerouslySetInnerHTML={{ __html: qrSvg }}
-                      />
-                    )}
-                  </>
-                ) : (
+                <div className="share-row">
+                  <input
+                    className="share-input"
+                    readOnly
+                    value={shareUrl ?? ''}
+                    onClick={(e) =>
+                      (e.target as HTMLInputElement).select()
+                    }
+                  />
                   <button
-                    className="share-btn primary"
-                    onClick={generateShare}
-                    style={{ width: '100%' }}
+                    className={`share-btn${copied ? ' success' : ''}`}
+                    disabled={!shareUrl}
+                    onClick={() => {
+                      if (shareUrl) {
+                        navigator.clipboard.writeText(shareUrl)
+                        setCopied(true)
+                        setTimeout(() => setCopied(false), 2000)
+                      }
+                    }}
                   >
-                    Generate Share Link
+                    {copied ? 'Copied' : 'Copy'}
                   </button>
+                </div>
+                {qrSvg ? (
+                  <div
+                    className="qr-wrap"
+                    dangerouslySetInnerHTML={{ __html: qrSvg }}
+                  />
+                ) : (
+                  <div className="qr-wrap qr-placeholder" />
                 )}
               </div>
 

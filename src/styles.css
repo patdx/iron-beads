@@ -474,6 +474,13 @@ body {
   border-radius: 3px;
   border: 1px solid #eee;
 }
+.qr-placeholder {
+  width: 162px;
+  height: 162px;
+  border-radius: 3px;
+  border: 1px solid #eee;
+  background: #f9f9f9;
+}
 
 .autosave {
   padding: 10px 14px;
