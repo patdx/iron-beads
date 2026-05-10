@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePaintStroke } from "./hooks/usePaintStroke";
+import { useHistory } from "./hooks/useHistory";
 import QRCode from "qrcode";
 import BeadGrid from "./components/BeadGrid";
 import IsometricPreview from "./IsometricPreview";
@@ -134,13 +135,34 @@ export default function App() {
   const [viewMode, setViewMode] = useState<"2d" | "iso">("2d");
   const [layerVisibility, setLayerVisibility] = useState<Record<number, boolean>>({});
   const [activeColor, setActiveColor] = useState("Y");
-  const [historyStamp, setHistoryStamp] = useState(0);
-
-  const historyRef = useRef<string[]>([storage.getItem("source") ?? DEFAULT_FILE]);
-  const historyIndexRef = useRef(0);
-  const historyTimerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sourceRef = useRef(source);
+
+  const {
+    push: pushHistory,
+    undo: hookUndo,
+    redo: hookRedo,
+    canUndo,
+    canRedo,
+  } = useHistory(storage.getItem("source") ?? DEFAULT_FILE);
+
+  const undo = useCallback(() => {
+    const val = hookUndo();
+    if (val !== undefined) {
+      setSource(val);
+      sourceRef.current = val;
+      storage.setItem("source", val);
+    }
+  }, [hookUndo]);
+
+  const redo = useCallback(() => {
+    const val = hookRedo();
+    if (val !== undefined) {
+      setSource(val);
+      sourceRef.current = val;
+      storage.setItem("source", val);
+    }
+  }, [hookRedo]);
 
   const parsed = useMemo(() => parseTemplate(source), [source]);
 
@@ -174,21 +196,6 @@ export default function App() {
     document.body.classList.toggle("bw-mode", bwMode);
   }, [bwMode]);
 
-  const pushHistory = useCallback((value: string) => {
-    if (historyTimerRef.current) clearTimeout(historyTimerRef.current);
-    historyTimerRef.current = window.setTimeout(() => {
-      const idx = historyIndexRef.current;
-      const hist = historyRef.current;
-      if (hist[idx] === value) return;
-      historyRef.current = [...hist.slice(0, idx + 1), value];
-      if (historyRef.current.length > 200) {
-        historyRef.current = historyRef.current.slice(-200);
-      }
-      historyIndexRef.current = historyRef.current.length - 1;
-      setHistoryStamp((s) => s + 1);
-    }, 500);
-  }, []);
-
   const updateSource = useCallback(
     (value: string, silent?: boolean) => {
       setSource(value);
@@ -198,35 +205,6 @@ export default function App() {
     },
     [pushHistory],
   );
-
-  const undo = () => {
-    if (historyIndexRef.current > 0) {
-      historyIndexRef.current--;
-      const val = historyRef.current[historyIndexRef.current];
-      if (val != null) {
-        setSource(val);
-        sourceRef.current = val;
-        storage.setItem("source", val);
-        setHistoryStamp((s) => s + 1);
-      }
-    }
-  };
-
-  const redo = () => {
-    if (historyIndexRef.current < historyRef.current.length - 1) {
-      historyIndexRef.current++;
-      const val = historyRef.current[historyIndexRef.current];
-      if (val != null) {
-        setSource(val);
-        sourceRef.current = val;
-        storage.setItem("source", val);
-        setHistoryStamp((s) => s + 1);
-      }
-    }
-  };
-
-  const canUndo = historyIndexRef.current > 0;
-  const canRedo = historyIndexRef.current < historyRef.current.length - 1;
 
   const handleFileOpen = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -328,7 +306,6 @@ export default function App() {
 
   const isLayerVisible = (i: number) => layerVisibility[i] !== false;
 
-  void historyStamp;
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
