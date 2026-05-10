@@ -1,4 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePaintStroke } from "./hooks/usePaintStroke";
 import QRCode from "qrcode";
 import IsometricPreview from "./IsometricPreview";
 import { createAppStorage, encodeShare } from "./storage";
@@ -94,16 +95,16 @@ function LayerView({
   beadSize,
   bwMode,
   layerIndex,
-  onBeadMouseDown,
-  onBeadMouseEnter,
+  onBeadPointerDown,
+  onBeadPointerEnter,
 }: {
   layer: Layer;
   palette: Record<string, string>;
   beadSize: number;
   bwMode: boolean;
   layerIndex: number;
-  onBeadMouseDown?: (li: number, ri: number, ci: number, e: React.MouseEvent) => void;
-  onBeadMouseEnter?: (li: number, ri: number, ci: number) => void;
+  onBeadPointerDown?: (li: number, ri: number, ci: number, e: React.MouseEvent) => void;
+  onBeadPointerEnter?: (li: number, ri: number, ci: number) => void;
 }) {
   const width = Math.max(...layer.rows.map((r) => r.length), 0);
   const showLabels = beadSize >= 12;
@@ -156,9 +157,9 @@ function LayerView({
                 }
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  onBeadMouseDown?.(layerIndex, y, x, e);
+                  onBeadPointerDown?.(layerIndex, y, x, e);
                 }}
-                onMouseEnter={() => onBeadMouseEnter?.(layerIndex, y, x)}
+                onMouseEnter={() => onBeadPointerEnter?.(layerIndex, y, x)}
               >
                 {!isEmpty && showLabels && (
                   <span className="bead-label">{char}</span>
@@ -193,8 +194,6 @@ export default function App() {
   const historyIndexRef = useRef(0);
   const historyTimerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isPainting = useRef(false);
-  const paintTarget = useRef(".");
   const sourceRef = useRef(source);
 
   const parsed = useMemo(() => parseTemplate(source), [source]);
@@ -326,34 +325,11 @@ export default function App() {
     [updateSource],
   );
 
-  const handleBeadMouseDown = useCallback(
-    (layerIdx: number, rowIdx: number, colIdx: number, e: React.MouseEvent) => {
-      const target = e.shiftKey ? "." : activeColor;
-      paintTarget.current = target;
-      isPainting.current = true;
-      applyPaint(layerIdx, rowIdx, colIdx, target);
-    },
-    [activeColor, applyPaint],
+  const { onBeadPointerDown, onBeadPointerEnter } = usePaintStroke(
+    activeColor,
+    applyPaint,
+    () => pushHistory(sourceRef.current),
   );
-
-  const handleBeadMouseEnter = useCallback(
-    (layerIdx: number, rowIdx: number, colIdx: number) => {
-      if (!isPainting.current) return;
-      applyPaint(layerIdx, rowIdx, colIdx, paintTarget.current);
-    },
-    [applyPaint],
-  );
-
-  useEffect(() => {
-    const up = () => {
-      if (isPainting.current) {
-        isPainting.current = false;
-        pushHistory(sourceRef.current);
-      }
-    };
-    window.addEventListener("mouseup", up);
-    return () => window.removeEventListener("mouseup", up);
-  }, [pushHistory]);
 
   const generateShare = useCallback(async () => {
     const encoded = encodeShare(source);
@@ -1184,8 +1160,8 @@ export default function App() {
                   beadSize={beadSize}
                   bwMode={bwMode}
                   layerIndex={safeLayerIndex}
-                  onBeadMouseDown={handleBeadMouseDown}
-                  onBeadMouseEnter={handleBeadMouseEnter}
+                  onBeadPointerDown={onBeadPointerDown}
+                  onBeadPointerEnter={onBeadPointerEnter}
                 />
               ) : (
                 <div style={{ color: "#999", fontSize: 13 }}>
