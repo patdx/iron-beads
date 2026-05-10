@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePaintStroke } from './hooks/usePaintStroke'
 import { useTemplateEditor } from './hooks/useTemplateEditor'
-import QRCode from 'qrcode'
+import { useShare } from './hooks/useShare'
 import './styles.css'
 import BeadGrid from './components/BeadGrid'
 import Preview3D from './Preview3D'
-import { createAppStorage, encodeShare, readHashSource } from './storage'
+import { createAppStorage, readHashSource } from './storage'
 import { nonEmptyKeys } from './template'
 import { DOMColorResolver } from './color'
 
@@ -80,13 +80,11 @@ export default function App() {
     redo: editorRedo,
   } = useTemplateEditor(initialSource, storage)
 
+  const { shareUrl, qrSvg, printQrSvg, copied, copyToClipboard } = useShare(source)
+
   const [notes, setNotes] = useState(() => storage.getItem('notes') ?? '')
   const [zoom, setZoom] = useState(100)
   const [bwMode, setBwMode] = useState(false)
-  const [qrSvg, setQrSvg] = useState<string | null>(null)
-  const [printQrSvg, setPrintQrSvg] = useState<string | null>(null)
-  const [shareUrl, setShareUrl] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
   const [leftTab, setLeftTab] = useState<'template' | 'notes'>('template')
   const [selectedLayerIndex, setSelectedLayerIndex] = useState(0)
   const [viewMode, setViewMode] = useState<'2d' | 'iso'>('2d')
@@ -166,36 +164,6 @@ export default function App() {
     paintAt,
     endStroke,
   )
-
-  useEffect(() => {
-    const timer = setTimeout(async () => {
-      const encoded = await encodeShare(source)
-      const url = `${window.location.origin}${window.location.pathname}#${encoded}`
-      setShareUrl(url)
-      try {
-        const [screenSvg, printSvg] = await Promise.all([
-          QRCode.toString(url, {
-            type: 'svg',
-            width: 160,
-            margin: 1,
-            color: { dark: '#000', light: '#fff' },
-          }),
-          QRCode.toString(url, {
-            type: 'svg',
-            width: 150,
-            margin: 1,
-            color: { dark: '#000', light: '#fff' },
-          }),
-        ])
-        setQrSvg(screenSvg)
-        setPrintQrSvg(printSvg)
-      } catch {
-        setQrSvg(null)
-        setPrintQrSvg(null)
-      }
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [source])
 
   const totalBeads = useMemo(
     () =>
@@ -502,13 +470,7 @@ export default function App() {
                   <button
                     className={`share-btn${copied ? ' success' : ''}`}
                     disabled={!shareUrl}
-                    onClick={() => {
-                      if (shareUrl) {
-                        navigator.clipboard.writeText(shareUrl)
-                        setCopied(true)
-                        setTimeout(() => setCopied(false), 2000)
-                      }
-                    }}
+                    onClick={copyToClipboard}
                   >
                     {copied ? 'Copied' : 'Copy'}
                   </button>
