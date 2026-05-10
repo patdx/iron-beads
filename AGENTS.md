@@ -3,11 +3,12 @@
 ## Setup & Toolchain
 - **pnpm only** (enforced by `packageManager` field). Node 24.
 - **No ESLint** — only Prettier: `singleQuote: true`, `semi: false`.
-- **No tests** — no test framework, no test files. Don't try to run them.
+- **Tests**: Vitest 4. Colocated `*.test.ts` files next to source modules.
 
 ## Build & Typecheck
 - `pnpm dev` — Vite dev server.
 - `pnpm build` — runs `tsc && vite build`. Typechecking happens first; a type error fails the build.
+- `pnpm check` — runs `tsc && vitest run`. Use before committing or deploying.
 - `tsc` is typecheck-only (`noEmit: true`); Vite handles compilation.
 - TS strict mode, `noUnusedLocals`, `noUnusedParameters` are on.
 
