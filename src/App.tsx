@@ -300,7 +300,7 @@ export default function App() {
       try {
         const svg = await QRCode.toString(url, {
           type: 'svg',
-          width: 120,
+          width: 150,
           margin: 1,
           color: { dark: '#000', light: '#fff' },
         })
@@ -886,11 +886,13 @@ export default function App() {
           .print-view {
             display: block;
             padding: 20px;
+            position: relative;
           }
           .print-title {
             font-size: 18px;
             font-weight: 700;
             margin-bottom: 4px;
+            padding-right: 170px;
           }
           .print-subtitle {
             font-size: 12px;
@@ -938,7 +940,14 @@ export default function App() {
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
           }
+          .print-qr {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+          }
           .print-qr svg {
+            width: 150px;
+            height: 150px;
             border: 1px solid #ddd;
             border-radius: 4px;
           }
@@ -1317,6 +1326,12 @@ export default function App() {
             )
           })}
 
+          <div className="print-qr">
+            {printQrSvg && (
+              <div dangerouslySetInnerHTML={{ __html: printQrSvg }} />
+            )}
+          </div>
+
           <div className="print-footer">
             <div className="print-legend">
               {Object.entries(parsed.palette)
@@ -1332,11 +1347,6 @@ export default function App() {
                     </span>
                   </div>
                 ))}
-            </div>
-            <div className="print-qr">
-              {printQrSvg && (
-                <div dangerouslySetInnerHTML={{ __html: printQrSvg }} />
-              )}
             </div>
           </div>
         </div>
