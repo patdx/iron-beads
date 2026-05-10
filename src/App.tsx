@@ -1,6 +1,7 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import IsometricPreview from "./IsometricPreview";
+import { createAppStorage, encodeShare } from "./storage";
 
 type Layer = {
   name: string;
@@ -16,42 +17,6 @@ type LayerLineMap = {
   name: string;
   rows: { lineIndex: number; text: string }[];
 }[];
-
-const STORAGE_KEY = "iron-beads-source";
-const NOTES_KEY = "iron-beads-notes";
-
-function encodeShare(source: string): string {
-  return btoa(unescape(encodeURIComponent(source)));
-}
-
-function decodeShare(encoded: string): string | null {
-  try {
-    return decodeURIComponent(escape(atob(encoded)));
-  } catch {
-    return null;
-  }
-}
-
-function loadSource(): string {
-  const hash = window.location.hash.slice(1);
-  if (hash) {
-    const decoded = decodeShare(hash);
-    if (decoded) return decoded;
-  }
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return saved;
-  } catch {}
-  return DEFAULT_FILE;
-}
-
-function loadNotes(): string {
-  try {
-    return localStorage.getItem(NOTES_KEY) || "";
-  } catch {
-    return "";
-  }
-}
 
 const DEFAULT_FILE = `# COLORS
 . empty
@@ -105,6 +70,8 @@ C gold
 ..PPPPPPP..
 ...PPPPP...
 `;
+
+const storage = createAppStorage(DEFAULT_FILE);
 
 function parseTemplate(input: string): ParsedFile {
   const lines = input.split("\n");
@@ -284,8 +251,8 @@ function LayerView({
 }
 
 export default function App() {
-  const [source, setSource] = useState(loadSource);
-  const [notes, setNotes] = useState(loadNotes);
+  const [source, setSource] = useState(() => storage.getItem("source") ?? DEFAULT_FILE);
+  const [notes, setNotes] = useState(() => storage.getItem("notes") ?? "");
   const [zoom, setZoom] = useState(100);
   const [bwMode, setBwMode] = useState(false);
   const [showQr, setShowQr] = useState(false);
@@ -300,7 +267,7 @@ export default function App() {
   const [activeColor, setActiveColor] = useState("Y");
   const [historyStamp, setHistoryStamp] = useState(0);
 
-  const historyRef = useRef<string[]>([loadSource()]);
+  const historyRef = useRef<string[]>([storage.getItem("source") ?? DEFAULT_FILE]);
   const historyIndexRef = useRef(0);
   const historyTimerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -336,9 +303,7 @@ export default function App() {
   }, [source]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(NOTES_KEY, notes);
-    } catch {}
+    storage.setItem("notes", notes);
   }, [notes]);
 
   useEffect(() => {
@@ -364,9 +329,7 @@ export default function App() {
     (value: string, silent?: boolean) => {
       setSource(value);
       sourceRef.current = value;
-      try {
-        localStorage.setItem(STORAGE_KEY, value);
-      } catch {}
+      storage.setItem("source", value);
       if (!silent) pushHistory(value);
     },
     [pushHistory],
@@ -379,9 +342,7 @@ export default function App() {
       if (val != null) {
         setSource(val);
         sourceRef.current = val;
-        try {
-          localStorage.setItem(STORAGE_KEY, val);
-        } catch {}
+        storage.setItem("source", val);
         setHistoryStamp((s) => s + 1);
       }
     }
@@ -394,9 +355,7 @@ export default function App() {
       if (val != null) {
         setSource(val);
         sourceRef.current = val;
-        try {
-          localStorage.setItem(STORAGE_KEY, val);
-        } catch {}
+        storage.setItem("source", val);
         setHistoryStamp((s) => s + 1);
       }
     }
