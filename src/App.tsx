@@ -3,7 +3,7 @@ import { usePaintStroke } from './hooks/usePaintStroke'
 import { useHistory } from './hooks/useHistory'
 import QRCode from 'qrcode'
 import BeadGrid from './components/BeadGrid'
-import IsometricPreview from './IsometricPreview'
+import Preview3D from './Preview3D'
 import { createAppStorage, encodeShare } from './storage'
 import {
   parseTemplate,
@@ -858,12 +858,13 @@ export default function App() {
         }
         .iso-canvas {
           width: 100%;
-          flex: 1;
-          min-height: 300px;
-          background: linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%);
+          height: 100%;
           cursor: grab;
           touch-action: none;
-          border-radius: 6px;
+        }
+        .grid-container.iso-mode {
+          padding: 0;
+          background: none;
         }
         .iso-canvas:active { cursor: grabbing; }
 
@@ -1115,10 +1116,10 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid-container" onWheel={onWheel}>
+            <div className={`grid-container${viewMode === 'iso' ? ' iso-mode' : ''}`} onWheel={onWheel}>
               {viewMode === 'iso' ? (
                 <div className="iso-wrap">
-                  <IsometricPreview
+                  <Preview3D
                     layers={parsed.layers.filter((_, i) => isLayerVisible(i))}
                     palette={parsed.palette}
                     beadSize={beadSize}
