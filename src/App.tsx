@@ -5,11 +5,12 @@ import { useShare } from './hooks/useShare'
 import './styles.css'
 import BeadGrid from './components/BeadGrid'
 import Preview3D from './Preview3D'
+import Toolbar from './components/Toolbar'
+import LeftPanel from './components/LeftPanel'
+import RightPanel from './components/RightPanel'
+import PrintView from './components/PrintView'
 import { createAppStorage, readHashSource } from './storage'
 import { nonEmptyKeys } from './template'
-import { DOMColorResolver } from './color'
-
-const colorResolver = new DOMColorResolver()
 
 const DEFAULT_FILE = `# COLORS
 . empty
@@ -85,12 +86,9 @@ export default function App() {
   const [notes, setNotes] = useState(() => storage.getItem('notes') ?? '')
   const [zoom, setZoom] = useState(100)
   const [bwMode, setBwMode] = useState(false)
-  const [leftTab, setLeftTab] = useState<'template' | 'notes'>('template')
   const [selectedLayerIndex, setSelectedLayerIndex] = useState(0)
   const [viewMode, setViewMode] = useState<'2d' | 'iso'>('2d')
-  const [layerVisibility, setLayerVisibility] = useState<
-    Record<number, boolean>
-  >({})
+  const [layerVisibility, setLayerVisibility] = useState<Record<number, boolean>>({})
   const [activeColor, setActiveColor] = useState('Y')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -113,10 +111,7 @@ export default function App() {
   const nonEmptyKeysList = useMemo(() => nonEmptyKeys(parsed), [parsed])
 
   useEffect(() => {
-    if (
-      nonEmptyKeysList.length > 0 &&
-      !nonEmptyKeysList.includes(activeColor)
-    ) {
+    if (nonEmptyKeysList.length > 0 && !nonEmptyKeysList.includes(activeColor)) {
       setActiveColor(nonEmptyKeysList[0]!)
     }
   }, [nonEmptyKeysList, activeColor])
@@ -190,7 +185,6 @@ export default function App() {
 
   return (
     <>
-
       <input
         type="file"
         ref={fileInputRef}
@@ -200,90 +194,28 @@ export default function App() {
       />
 
       <div className="app">
-        {/* TOP TOOLBAR */}
-        <div className="toolbar">
-          <span className="toolbar-title">Iron Beads</span>
-          <button className="tb" onClick={handleNew}>
-            + New
-          </button>
-          <button className="tb" onClick={() => fileInputRef.current?.click()}>
-            Open
-          </button>
-          <button className="tb" onClick={handleSave}>
-            Save
-          </button>
-          <div className="toolbar-sep" />
-          <button className="tb" onClick={editorUndo} disabled={!canUndo}>
-            &#x21B6; Undo
-          </button>
-          <button className="tb" onClick={editorRedo} disabled={!canRedo}>
-            &#x21B7; Redo
-          </button>
-          <div className="toolbar-sep" />
-          <button
-            className={`tb${viewMode === '2d' ? ' active' : ''}`}
-            onClick={() => setViewMode('2d')}
-          >
-            2D Grid
-          </button>
-          <button
-            className={`tb${viewMode === 'iso' ? ' active' : ''}`}
-            onClick={() => setViewMode('iso')}
-          >
-            3D Preview
-          </button>
-          <div className="toolbar-sep" />
-          <button
-            className={`tb${bwMode ? ' active' : ''}`}
-            onClick={() => setBwMode((b) => !b)}
-          >
-            B&W (Labels)
-          </button>
-          <div style={{ flex: 1 }} />
-          <button className="tb" onClick={() => window.print()}>
-            Print
-          </button>
-        </div>
+        <Toolbar
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={editorUndo}
+          onRedo={editorRedo}
+          onNew={handleNew}
+          onOpen={() => fileInputRef.current?.click()}
+          onSave={handleSave}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          bwMode={bwMode}
+          onBwModeChange={(b) => setBwMode(b)}
+        />
 
-        {/* WORKSPACE */}
         <div className="workspace">
-          {/* LEFT PANEL */}
-          <div className="left-panel">
-            <div className="tabs">
-              <button
-                className={`tab${leftTab === 'template' ? ' active' : ''}`}
-                onClick={() => setLeftTab('template')}
-              >
-                Template
-              </button>
-              <button
-                className={`tab${leftTab === 'notes' ? ' active' : ''}`}
-                onClick={() => setLeftTab('notes')}
-              >
-                Notes
-              </button>
-            </div>
-            <div className="editor-area">
-              {leftTab === 'template' ? (
-                <textarea
-                  className="source-textarea"
-                  value={source}
-                  onChange={(e) => editSource_(e.target.value)}
-                  spellCheck={false}
-                />
-              ) : (
-                <textarea
-                  className="source-textarea"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add your notes here..."
-                  spellCheck={false}
-                />
-              )}
-            </div>
-          </div>
+          <LeftPanel
+            source={source}
+            onSourceChange={editSource_}
+            notes={notes}
+            onNotesChange={setNotes}
+          />
 
-          {/* CENTER PANEL */}
           <div className="center-panel">
             <div className="center-header">
               <div className="layer-tabs">
@@ -329,7 +261,10 @@ export default function App() {
               </div>
             </div>
 
-            <div className={`grid-container${viewMode === 'iso' ? ' iso-mode' : ''}`} onWheel={onWheel}>
+            <div
+              className={`grid-container${viewMode === 'iso' ? ' iso-mode' : ''}`}
+              onWheel={onWheel}
+            >
               {viewMode === 'iso' ? (
                 <div className="iso-wrap">
                   <Preview3D
@@ -361,140 +296,22 @@ export default function App() {
             </div>
           </div>
 
-          {/* RIGHT PANEL */}
-          <div className="right-panel">
-            <div className="panel-scroll">
-              {/* PALETTE */}
-              <div className="section">
-                <div className="section-title">
-                  Palette
-                  <span className="section-count">
-                    {Object.keys(parsed.palette).length}
-                  </span>
-                </div>
-                {Object.entries(parsed.palette).map(([key, color]) => (
-                  <div
-                    key={key}
-                    className={`palette-row${activeColor === key ? ' selected' : ''}`}
-                    onClick={() => setActiveColor(key)}
-                  >
-                    <div
-                      className="palette-swatch"
-                      style={{
-                        background: key === '.' ? '#fff' : color,
-                      }}
-                    />
-                    <span className="palette-key">{key}</span>
-                    <span className="palette-name">{color}</span>
-                    {key !== '.' && (
-                      <span className="palette-hex">{colorResolver.resolve(color)}</span>
-                    )}
-                  </div>
-                ))}
-                <div
-                  className="active-color-bar"
-                  style={{ background: parsed.palette[activeColor] || '#eee' }}
-                />
-              </div>
-
-              {/* LAYERS */}
-              <div className="section">
-                <div className="section-title">
-                  Layers
-                  <span className="section-count">{parsed.layers.length}</span>
-                </div>
-                {parsed.layers.map((layer, i) => {
-                  const w = Math.max(...layer.rows.map((r) => r.length), 0)
-                  const h = layer.rows.length
-                  return (
-                    <div
-                      key={layer.name}
-                      className={`layer-row${safeLayerIndex === i ? ' active' : ''}`}
-                      onClick={() => setSelectedLayerIndex(i)}
-                    >
-                      <span
-                        className="layer-eye"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setLayerVisibility((prev) => ({
-                            ...prev,
-                            [i]: prev[i] === false,
-                          }))
-                        }}
-                      >
-                        {isLayerVisible(i) ? '\u25C9' : '\u25CE'}
-                      </span>
-                      <span className="layer-idx">{i + 1}</span>
-                      <span className="layer-name-text">{layer.name}</span>
-                      <span className="layer-dims">
-                        {w}&times;{h}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* TEMPLATE INFO */}
-              <div className="section">
-                <div className="section-title">Template Info</div>
-                <div className="info-row">
-                  <span className="info-label">Dimensions</span>
-                  <span>
-                    {selectedLayer
-                      ? `${Math.max(...selectedLayer.rows.map((r) => r.length), 0)} \u00d7 ${selectedLayer.rows.length}`
-                      : '\u2014'}
-                  </span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Layers</span>
-                  <span>{parsed.layers.length}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Total beads</span>
-                  <span>{totalBeads}</span>
-                </div>
-              </div>
-
-              {/* SHARE */}
-              <div className="section">
-                <div className="section-title">Share</div>
-                <div className="share-row">
-                  <input
-                    className="share-input"
-                    readOnly
-                    value={shareUrl ?? ''}
-                    onClick={(e) =>
-                      (e.target as HTMLInputElement).select()
-                    }
-                  />
-                  <button
-                    className={`share-btn${copied ? ' success' : ''}`}
-                    disabled={!shareUrl}
-                    onClick={copyToClipboard}
-                  >
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                {qrSvg ? (
-                  <div
-                    className="qr-wrap"
-                    dangerouslySetInnerHTML={{ __html: qrSvg }}
-                  />
-                ) : (
-                  <div className="qr-wrap qr-placeholder" />
-                )}
-              </div>
-
-              {/* AUTOSAVE */}
-              <div className="autosave">
-                <span className="autosave-dot" />
-                Auto-saved to this device
-              </div>
-            </div>
-          </div>
+          <RightPanel
+            parsed={parsed}
+            selectedLayerIndex={safeLayerIndex}
+            onSelectLayer={setSelectedLayerIndex}
+            activeColor={activeColor}
+            onActiveColorChange={setActiveColor}
+            layerVisibility={layerVisibility}
+            onLayerVisibilityChange={setLayerVisibility}
+            totalBeads={totalBeads}
+            shareUrl={shareUrl}
+            qrSvg={qrSvg}
+            copied={copied}
+            onCopyToClipboard={copyToClipboard}
+          />
         </div>
 
-        {/* BOTTOM BAR */}
         <div className="bottom-bar">
           <span className="bottom-item">
             <span style={{ opacity: 0.5 }}>&#x25CB;</span> empty bead
@@ -505,57 +322,12 @@ export default function App() {
           <span className="bottom-item">Scroll to zoom</span>
         </div>
 
-        {/* PRINT VIEW */}
-        <div className="print-view">
-          <div className="print-title">Iron Beads Designer</div>
-          <div className="print-subtitle">
-            {parsed.layers.length} layer{parsed.layers.length !== 1 ? 's' : ''}{' '}
-            &middot; {totalBeads} beads total
-          </div>
-
-          {parsed.layers.map((layer) => {
-            const w = Math.max(...layer.rows.map((r) => r.length), 0)
-            return (
-              <div key={layer.name} className="print-layer">
-                <div className="print-layer-title">
-                  {layer.name} ({w} &times; {layer.rows.length})
-                </div>
-                <BeadGrid
-                  rows={layer.rows}
-                  palette={parsed.palette}
-                  beadSize={20}
-                  bwMode={bwMode}
-                  showLabels={true}
-                  gridClassName="print-grid"
-                />
-              </div>
-            )
-          })}
-
-          <div className="print-qr">
-            {printQrSvg && (
-              <div dangerouslySetInnerHTML={{ __html: printQrSvg }} />
-            )}
-          </div>
-
-          <div className="print-footer">
-            <div className="print-legend">
-              {Object.entries(parsed.palette)
-                .filter(([k]) => k !== '.')
-                .map(([key, color]) => (
-                  <div key={key} className="print-legend-item">
-                    <div
-                      className="print-legend-swatch"
-                      style={{ background: color }}
-                    />
-                    <span>
-                      {key} = {color}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
+        <PrintView
+          parsed={parsed}
+          totalBeads={totalBeads}
+          bwMode={bwMode}
+          printQrSvg={printQrSvg}
+        />
       </div>
     </>
   )
