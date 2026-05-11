@@ -7,8 +7,8 @@ async function streamThrough(
   const stream = new StreamClass(FORMAT)
   const writer = stream.writable.getWriter()
   const reader = stream.readable.getReader()
-  writer.write(data.buffer as ArrayBuffer)
-  writer.close()
+  await writer.write(data.buffer as ArrayBuffer)
+  await writer.close()
   const chunks: Uint8Array[] = []
   let totalLen = 0
   while (true) {
