@@ -10,8 +10,8 @@ import {
   decompress,
   encodeBase64Url,
   decodeBase64Url,
-} from './compress'
-import type { ParsedTemplate } from '../template/types'
+} from '../storage/compress'
+import type { DocumentData } from './types'
 
 const DEFAULT_FILE = `# COLORS
 . empty
@@ -66,7 +66,7 @@ C gold
 ...PPPPP...
 `
 
-function defaultTemplate(): ParsedTemplate {
+function defaultData(): DocumentData {
   return {
     palette: {
       '.': 'empty',
@@ -139,18 +139,17 @@ function skipPalette(buf: Uint8Array, startPos: number): number {
   return pos
 }
 
-function readEntry(buf: Uint8Array, pos: { value: number }): [string, string] {
+function readEntry(
+  buf: Uint8Array,
+  pos: { value: number },
+): [string, string] {
   const kl = buf[pos.value]!
   pos.value++
-  const key = new TextDecoder().decode(
-    buf.slice(pos.value, pos.value + kl),
-  )
+  const key = new TextDecoder().decode(buf.slice(pos.value, pos.value + kl))
   pos.value += kl
   const nl = buf[pos.value]!
   pos.value++
-  const name = new TextDecoder().decode(
-    buf.slice(pos.value, pos.value + nl),
-  )
+  const name = new TextDecoder().decode(buf.slice(pos.value, pos.value + nl))
   pos.value += nl
   return [key, name]
 }
@@ -158,39 +157,39 @@ function readEntry(buf: Uint8Array, pos: { value: number }): [string, string] {
 describe('binary codec', () => {
   describe('header format', () => {
     it('writes magic bytes 0x4942', () => {
-      const buf = toBinary(defaultTemplate())
+      const buf = toBinary(defaultData())
       const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
       expect(view.getUint16(0)).toBe(BINARY_MAGIC)
     })
 
     it('writes version 1', () => {
-      const buf = toBinary(defaultTemplate())
+      const buf = toBinary(defaultData())
       expect(buf[2]).toBe(BINARY_VERSION)
     })
 
     it('writes color count (excluding implicit dot) in byte 3', () => {
-      const buf = toBinary(defaultTemplate())
+      const buf = toBinary(defaultData())
       expect(buf[3]).toBe(7)
     })
 
     it('writes layer count in byte 4', () => {
-      const buf = toBinary(defaultTemplate())
+      const buf = toBinary(defaultData())
       expect(buf[4]).toBe(3)
     })
 
     it('byte 5 is reserved zero', () => {
-      const buf = toBinary(defaultTemplate())
+      const buf = toBinary(defaultData())
       expect(buf[5]).toBe(0)
     })
   })
 
   describe('palette encoding', () => {
     it('only stores non-dot entries; dot is implicit at index 0', () => {
-      const tpl: ParsedTemplate = {
+      const data: DocumentData = {
         palette: { '.': 'empty', R: 'red', B: 'blue' },
         layers: [{ name: 'L1', rows: ['R.B'] }],
       }
-      const buf = toBinary(tpl)
+      const buf = toBinary(data)
       const p = { value: 6 }
 
       expect(buf[3]).toBe(2)
@@ -212,11 +211,11 @@ describe('binary codec', () => {
         palette[ch] = `color${count}`
         count++
       }
-      const tpl: ParsedTemplate = {
+      const data: DocumentData = {
         palette,
         layers: [{ name: 'L', rows: ['.'] }],
       }
-      const buf = toBinary(tpl)
+      const buf = toBinary(data)
       expect(buf[3]).toBe(255)
       const restored = fromBinary(buf)
       expect(Object.keys(restored.palette)).toHaveLength(256)
@@ -225,11 +224,11 @@ describe('binary codec', () => {
 
   describe('layer encoding', () => {
     it('encodes layer name as length-prefixed utf8', () => {
-      const tpl: ParsedTemplate = {
+      const data: DocumentData = {
         palette: { '.': 'empty' },
         layers: [{ name: 'MY LAYER', rows: ['...'] }],
       }
-      const buf = toBinary(tpl)
+      const buf = toBinary(data)
       let pos = skipPalette(buf, 6)
 
       const layerNameLen = buf[pos]!
@@ -241,11 +240,11 @@ describe('binary codec', () => {
     })
 
     it('encodes height and width as two bytes', () => {
-      const tpl: ParsedTemplate = {
+      const data: DocumentData = {
         palette: { '.': 'empty' },
         layers: [{ name: 'L', rows: ['...', '...', '...'] }],
       }
-      const buf = toBinary(tpl)
+      const buf = toBinary(data)
       let pos = skipPalette(buf, 6)
 
       const nameLen = buf[pos]!
@@ -256,11 +255,11 @@ describe('binary codec', () => {
     })
 
     it('maps dot to index 0 and colors to 1+', () => {
-      const tpl: ParsedTemplate = {
+      const data: DocumentData = {
         palette: { '.': 'empty', R: 'red' },
         layers: [{ name: 'L', rows: ['R..', 'R', 'R...'] }],
       }
-      const buf = toBinary(tpl)
+      const buf = toBinary(data)
 
       let pos = skipPalette(buf, 6)
 
@@ -294,11 +293,11 @@ describe('binary codec', () => {
     })
 
     it('handles empty layer (no rows)', () => {
-      const tpl: ParsedTemplate = {
+      const data: DocumentData = {
         palette: { '.': 'empty' },
         layers: [{ name: 'EMPTY', rows: [] }],
       }
-      const buf = toBinary(tpl)
+      const buf = toBinary(data)
 
       let pos = skipPalette(buf, 6)
       const nameLen = buf[pos]!
@@ -310,27 +309,27 @@ describe('binary codec', () => {
   })
 
   describe('roundtrip', () => {
-    it('roundtrips the default template exactly', () => {
-      const tpl = defaultTemplate()
-      const restored = fromBinary(toBinary(tpl))
-      expect(restored.palette).toEqual(tpl.palette)
-      expect(restored.layers).toEqual(tpl.layers)
+    it('roundtrips the default data exactly', () => {
+      const data = defaultData()
+      const restored = fromBinary(toBinary(data))
+      expect(restored.palette).toEqual(data.palette)
+      expect(restored.layers).toEqual(data.layers)
     })
 
     it('roundtrips a single-layer single-color template', () => {
-      const tpl: ParsedTemplate = {
+      const data: DocumentData = {
         palette: { '.': 'empty', R: 'red' },
         layers: [{ name: 'SOLID', rows: ['RRR', 'RRR', 'RRR'] }],
       }
-      expect(fromBinary(toBinary(tpl))).toEqual(tpl)
+      expect(fromBinary(toBinary(data))).toEqual(data)
     })
 
     it('roundtrips a template with only empty beads', () => {
-      const tpl: ParsedTemplate = {
+      const data: DocumentData = {
         palette: { '.': 'empty' },
         layers: [{ name: 'BLANK', rows: ['...', '...'] }],
       }
-      expect(fromBinary(toBinary(tpl))).toEqual(tpl)
+      expect(fromBinary(toBinary(data))).toEqual(data)
     })
 
     it('roundtrips a template with many palette colors', () => {
@@ -356,21 +355,21 @@ describe('binary codec', () => {
       for (let i = 0; i < keys.length; i++) {
         palette[keys[i]!] = colorNames[i]!
       }
-      const tpl: ParsedTemplate = {
+      const data: DocumentData = {
         palette,
         layers: [{ name: 'ALL', rows: ['RGBYPOCKMDTNLAE'] }],
       }
-      const restored = fromBinary(toBinary(tpl))
+      const restored = fromBinary(toBinary(data))
       expect(Object.keys(restored.palette)).toHaveLength(16)
       expect(restored.layers[0]!.rows[0]).toBe('RGBYPOCKMDTNLAE')
     })
 
     it('roundtrips empty layers array', () => {
-      const tpl: ParsedTemplate = {
+      const data: DocumentData = {
         palette: { '.': 'empty' },
         layers: [],
       }
-      expect(fromBinary(toBinary(tpl))).toEqual(tpl)
+      expect(fromBinary(toBinary(data))).toEqual(data)
     })
   })
 
@@ -382,8 +381,8 @@ describe('binary codec', () => {
     })
 
     it('rejects data with unsupported version', () => {
-      const tpl = defaultTemplate()
-      const buf = toBinary(tpl)
+      const data = defaultData()
+      const buf = toBinary(data)
       buf[2] = 99
       expect(() => fromBinary(buf)).toThrow(/Unsupported version/)
     })
@@ -392,31 +391,29 @@ describe('binary codec', () => {
 
 describe('compression pipeline', () => {
   it('roundtrips binary data through compress + decompress', async () => {
-    const binary = toBinary(defaultTemplate())
+    const binary = toBinary(defaultData())
     const decompressed = await decompress(await compress(binary))
     expect(decompressed).toEqual(binary)
   })
 
   it('roundtrips the full pipeline (binary -> compress -> base64url -> decode -> decompress -> binary)', async () => {
-    const tpl = defaultTemplate()
-    const encoded = encodeBase64Url(await compress(toBinary(tpl)))
+    const data = defaultData()
+    const encoded = encodeBase64Url(await compress(toBinary(data)))
 
     expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/)
 
     const restored = fromBinary(
       await decompress(decodeBase64Url(encoded)),
     )
-    expect(restored).toEqual(tpl)
+    expect(restored).toEqual(data)
   })
 
-  it('produces a shorter encoded string than the old base64(utf8)', async () => {
-    const encoded = encodeBase64Url(
-      await compress(toBinary(defaultTemplate())),
-    )
-    const oldEncoded = btoa(
+  it('produces a shorter encoded string than plain base64 of ascii', async () => {
+    const encoded = encodeBase64Url(await compress(toBinary(defaultData())))
+    const plainBase64 = btoa(
       unescape(encodeURIComponent(DEFAULT_FILE)),
     )
-    expect(encoded.length).toBeLessThan(oldEncoded.length)
+    expect(encoded.length).toBeLessThan(plainBase64.length)
   })
 
   it('handles base64url encoding/decoding with all special chars', () => {

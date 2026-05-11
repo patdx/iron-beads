@@ -1,0 +1,6 @@
+export type { Layer, DocumentData, Document } from './types'
+export { createDocument, pushHistory, undo, redo } from './editor'
+export { paintBead, nonEmptyKeys } from './operations'
+export { toBinary, fromBinary } from './binary-codec'
+export { importAscii } from './import-ascii'
+export { exportAscii } from './export-ascii'

@@ -1,6 +1,6 @@
-import type { Layer, ParsedTemplate } from './types'
+import type { Layer, DocumentData } from './types'
 
-export function parseTemplate(input: string): ParsedTemplate {
+export function importAscii(input: string): DocumentData {
   const lines = input.split('\n')
   const palette: Record<string, string> = {}
   const layers: Layer[] = []

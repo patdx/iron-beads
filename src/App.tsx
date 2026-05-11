@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { usePaintStroke } from './hooks/usePaintStroke'
-import { useTemplateEditor } from './hooks/useTemplateEditor'
-import { useShare } from './hooks/useShare'
-import './styles.css'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import BeadGrid from './components/BeadGrid'
 import Preview3D from './Preview3D'
 import Toolbar from './components/Toolbar'
 import LeftPanel from './components/LeftPanel'
 import RightPanel from './components/RightPanel'
 import PrintView from './components/PrintView'
+import { usePaintStroke } from './hooks/usePaintStroke'
+import { useTemplateEditor } from './hooks/useTemplateEditor'
+import { useShare } from './hooks/useShare'
+import { useZoom } from './hooks/useZoom'
 import { createAppStorage, readHashSource } from './storage'
-import { nonEmptyKeys } from './template'
+import { nonEmptyKeys } from './document'
+import './styles.css'
 
 const DEFAULT_FILE = `# COLORS
 . empty
@@ -81,16 +82,20 @@ export default function App() {
     redo: editorRedo,
   } = useTemplateEditor(initialSource, storage)
 
-  const { shareUrl, qrSvg, printQrSvg, copied, copyToClipboard } = useShare(source)
+  const { shareUrl, qrSvg, printQrSvg, copied, copyToClipboard } =
+    useShare(parsed)
 
   const [notes, setNotes] = useState(() => storage.getItem('notes') ?? '')
-  const [zoom, setZoom] = useState(100)
   const [bwMode, setBwMode] = useState(false)
   const [selectedLayerIndex, setSelectedLayerIndex] = useState(0)
   const [viewMode, setViewMode] = useState<'2d' | 'iso'>('2d')
-  const [layerVisibility, setLayerVisibility] = useState<Record<number, boolean>>({})
+  const [layerVisibility, setLayerVisibility] = useState<
+    Record<number, boolean>
+  >({})
   const [activeColor, setActiveColor] = useState('Y')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const { zoom, setZoom, onWheel } = useZoom()
 
   useEffect(() => {
     readHashSource().then((decoded) => {
@@ -111,7 +116,10 @@ export default function App() {
   const nonEmptyKeysList = useMemo(() => nonEmptyKeys(parsed), [parsed])
 
   useEffect(() => {
-    if (nonEmptyKeysList.length > 0 && !nonEmptyKeysList.includes(activeColor)) {
+    if (
+      nonEmptyKeysList.length > 0 &&
+      !nonEmptyKeysList.includes(activeColor)
+    ) {
       setActiveColor(nonEmptyKeysList[0]!)
     }
   }, [nonEmptyKeysList, activeColor])
@@ -175,13 +183,6 @@ export default function App() {
   )
 
   const isLayerVisible = (i: number) => layerVisibility[i] !== false
-
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault()
-      setZoom((z) => Math.max(25, Math.min(300, z + (e.deltaY > 0 ? -5 : 5))))
-    }
-  }, [])
 
   return (
     <>
@@ -268,7 +269,9 @@ export default function App() {
               {viewMode === 'iso' ? (
                 <div className="iso-wrap">
                   <Preview3D
-                    layers={parsed.layers.filter((_, i) => isLayerVisible(i))}
+                    layers={parsed.layers.filter((_, i) =>
+                      isLayerVisible(i),
+                    )}
                     palette={parsed.palette}
                     beadSize={beadSize}
                   />

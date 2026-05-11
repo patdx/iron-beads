@@ -1,8 +1,8 @@
-import type { ParsedTemplate } from '../template'
+import type { DocumentData } from '../document'
 import BeadGrid from './BeadGrid'
 
 type PrintViewProps = {
-  parsed: ParsedTemplate
+  parsed: DocumentData
   totalBeads: number
   bwMode: boolean
   printQrSvg: string | null

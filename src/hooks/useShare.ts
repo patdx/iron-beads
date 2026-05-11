@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { encodeShare } from '../storage'
+import type { DocumentData } from '../document/types'
 
-export function useShare(source: string) {
+export function useShare(data: DocumentData) {
   const [qrSvg, setQrSvg] = useState<string | null>(null)
   const [printQrSvg, setPrintQrSvg] = useState<string | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
@@ -10,7 +11,7 @@ export function useShare(source: string) {
 
   useEffect(() => {
     const timer = setTimeout(async () => {
-      const encoded = await encodeShare(source)
+      const encoded = await encodeShare(data)
       const url = `${window.location.origin}${window.location.pathname}#${encoded}`
       setShareUrl(url)
       try {
@@ -36,7 +37,7 @@ export function useShare(source: string) {
       }
     }, 500)
     return () => clearTimeout(timer)
-  }, [source])
+  }, [data])
 
   const copyToClipboard = () => {
     if (shareUrl) {

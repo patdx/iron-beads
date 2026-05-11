@@ -1,14 +1,14 @@
-import type { ParsedTemplate } from '../template/types'
+import type { DocumentData } from './types'
 
 export const BINARY_MAGIC = 0x4942
 export const BINARY_VERSION = 1
 
 const EMPTY_KEY = '.'
 
-export function toBinary(template: ParsedTemplate): Uint8Array {
+export function toBinary(data: DocumentData): Uint8Array {
   const parts: Uint8Array[] = []
 
-  const colorEntries = Object.entries(template.palette).filter(
+  const colorEntries = Object.entries(data.palette).filter(
     ([k]) => k !== EMPTY_KEY,
   )
 
@@ -16,7 +16,7 @@ export function toBinary(template: ParsedTemplate): Uint8Array {
   new DataView(header.buffer).setUint16(0, BINARY_MAGIC)
   header[2] = BINARY_VERSION
   header[3] = colorEntries.length
-  header[4] = template.layers.length
+  header[4] = data.layers.length
   header[5] = 0
   parts.push(header)
 
@@ -38,7 +38,7 @@ export function toBinary(template: ParsedTemplate): Uint8Array {
     keyToIdx.set(colorEntries[i]![0], i + 1)
   }
 
-  for (const layer of template.layers) {
+  for (const layer of data.layers) {
     const nameBytes = new TextEncoder().encode(layer.name)
     const nameLen = new Uint8Array(1)
     nameLen[0] = nameBytes.length
@@ -80,12 +80,8 @@ export function toBinary(template: ParsedTemplate): Uint8Array {
   return result
 }
 
-export function fromBinary(data: Uint8Array): ParsedTemplate {
-  const view = new DataView(
-    data.buffer,
-    data.byteOffset,
-    data.byteLength,
-  )
+export function fromBinary(data: Uint8Array): DocumentData {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
 
   let pos = 0
 

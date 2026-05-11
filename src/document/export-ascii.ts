@@ -1,18 +1,18 @@
-import type { ParsedTemplate } from './types'
+import type { DocumentData } from './types'
 
-export function serialize(template: ParsedTemplate): string {
+export function exportAscii(data: DocumentData): string {
   const lines: string[] = []
 
   lines.push('# COLORS')
   lines.push('. empty')
 
-  for (const [key, value] of Object.entries(template.palette)) {
+  for (const [key, value] of Object.entries(data.palette)) {
     if (key !== '.') {
       lines.push(`${key} ${value}`)
     }
   }
 
-  template.layers.forEach((layer, i) => {
+  data.layers.forEach((layer, i) => {
     if (i > 0) {
       lines.push('')
       lines.push('---')

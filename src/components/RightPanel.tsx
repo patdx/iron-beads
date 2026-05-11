@@ -1,10 +1,10 @@
-import type { ParsedTemplate } from '../template'
+import type { DocumentData } from '../document'
 import { DOMColorResolver } from '../color'
 
 const colorResolver = new DOMColorResolver()
 
 type RightPanelProps = {
-  parsed: ParsedTemplate
+  parsed: DocumentData
   selectedLayerIndex: number
   onSelectLayer: (index: number) => void
   activeColor: string

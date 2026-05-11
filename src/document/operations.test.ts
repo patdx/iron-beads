@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { paintBead, nonEmptyKeys } from './operations'
-import type { ParsedTemplate } from './types'
+import type { DocumentData } from './types'
 
-const base: ParsedTemplate = {
+const base: DocumentData = {
   palette: { '.': 'empty', R: 'red' },
   layers: [{ name: 'L1', rows: ['RR.', '...'] }],
 }
@@ -33,7 +33,7 @@ describe('paintBead', () => {
     expect(result).toBe(base)
   })
 
-  it('does not mutate the original template', () => {
+  it('does not mutate the original data', () => {
     const original = base.layers[0]!.rows[0]
     paintBead(base, 0, 0, 0, '.')
     expect(base.layers[0]!.rows[0]).toBe(original)
@@ -51,6 +51,8 @@ describe('nonEmptyKeys', () => {
   })
 
   it('returns empty array when only empty key exists', () => {
-    expect(nonEmptyKeys({ palette: { '.': 'empty' }, layers: [] })).toEqual([])
+    expect(
+      nonEmptyKeys({ palette: { '.': 'empty' }, layers: [] }),
+    ).toEqual([])
   })
 })

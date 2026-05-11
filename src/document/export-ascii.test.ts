@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { parseTemplate } from './parse'
-import { serialize } from './serialize'
+import { importAscii } from './import-ascii'
+import { exportAscii } from './export-ascii'
 
-describe('serialize', () => {
-  it('round-trips with parseTemplate', () => {
+describe('exportAscii', () => {
+  it('round-trips with importAscii', () => {
     const input = `. empty\nR red\nB blue\n\n# Top\nR.R\n.B.\n\n---\n\n# Bottom\n.B.\nR.R`
-    const parsed = parseTemplate(input)
-    const output = serialize(parsed)
-    const reparsed = parseTemplate(output)
+    const parsed = importAscii(input)
+    const output = exportAscii(parsed)
+    const reparsed = importAscii(output)
     expect(reparsed).toEqual(parsed)
   })
 
-  it('formats palette with . empty first, then sorted entries', () => {
-    const result = serialize({
+  it('formats palette with . empty first, then entries', () => {
+    const result = exportAscii({
       palette: { '.': 'empty', B: 'blue', R: 'red' },
       layers: [],
     })
@@ -22,7 +22,7 @@ describe('serialize', () => {
   })
 
   it('serializes a single layer', () => {
-    const result = serialize({
+    const result = exportAscii({
       palette: { '.': 'empty' },
       layers: [{ name: 'Test', rows: ['ABC', 'DEF'] }],
     })
