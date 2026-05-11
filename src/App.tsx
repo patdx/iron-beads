@@ -10,7 +10,11 @@ import { useTemplateEditor } from './hooks/useTemplateEditor'
 import { useShare } from './hooks/useShare'
 import { useZoom } from './hooks/useZoom'
 import { createAppStorage, readHashSource } from './storage'
-import { nonEmptyKeys } from './document'
+import {
+  countBeads,
+  clampLayerIndex,
+  selectValidColor,
+} from './document'
 import './styles.css'
 
 const DEFAULT_FILE = `# COLORS
@@ -106,23 +110,15 @@ export default function App() {
   const baseBeadSize = 22
   const beadSize = Math.max(6, Math.round(baseBeadSize * (zoom / 100)))
 
-  const safeLayerIndex = Math.min(
-    selectedLayerIndex,
-    Math.max(0, parsed.layers.length - 1),
-  )
+  const safeLayerIndex = clampLayerIndex(parsed, selectedLayerIndex)
 
   const selectedLayer = parsed.layers[safeLayerIndex]
 
-  const nonEmptyKeysList = useMemo(() => nonEmptyKeys(parsed), [parsed])
+  const validColor = selectValidColor(parsed, activeColor)
 
   useEffect(() => {
-    if (
-      nonEmptyKeysList.length > 0 &&
-      !nonEmptyKeysList.includes(activeColor)
-    ) {
-      setActiveColor(nonEmptyKeysList[0]!)
-    }
-  }, [nonEmptyKeysList, activeColor])
+    if (validColor !== activeColor) setActiveColor(validColor)
+  }, [validColor, activeColor])
 
   useEffect(() => {
     storage.setItem('notes', notes)
@@ -168,19 +164,7 @@ export default function App() {
     endStroke,
   )
 
-  const totalBeads = useMemo(
-    () =>
-      parsed.layers.reduce(
-        (sum, l) =>
-          sum +
-          l.rows.reduce(
-            (s, row) => s + [...row].filter((c) => c !== '.').length,
-            0,
-          ),
-        0,
-      ),
-    [parsed],
-  )
+  const totalBeads = useMemo(() => countBeads(parsed), [parsed])
 
   const isLayerVisible = (i: number) => layerVisibility[i] !== false
 

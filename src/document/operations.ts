@@ -33,3 +33,30 @@ export function paintBead(
 export function nonEmptyKeys(data: DocumentData): string[] {
   return Object.keys(data.palette).filter((k) => k !== '.')
 }
+
+export function countBeads(data: DocumentData): number {
+  return data.layers.reduce(
+    (sum, layer) =>
+      sum +
+      layer.rows.reduce(
+        (s, row) => s + [...row].filter((c) => c !== '.').length,
+        0,
+      ),
+    0,
+  )
+}
+
+export function clampLayerIndex(data: DocumentData, index: number): number {
+  const max = Math.max(0, data.layers.length - 1)
+  return Math.min(index, max)
+}
+
+export function selectValidColor(
+  data: DocumentData,
+  current: string,
+): string {
+  const keys = nonEmptyKeys(data)
+  if (keys.length === 0) return current
+  if (keys.includes(current)) return current
+  return keys[0]!
+}
