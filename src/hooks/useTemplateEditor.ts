@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { StorageBackend } from '../storage/types'
 import type { Document } from '../document/types'
-import { createDocument, pushHistory, undo, redo } from '../document/editor'
+import {
+  createDocument,
+  editSource,
+  toSource,
+  pushHistory,
+  undo,
+  redo,
+} from '../document/editor'
 import { paintBead } from '../document/operations'
-import { importAscii } from '../document/import-ascii'
-import { exportAscii } from '../document/export-ascii'
 
 export function useTemplateEditor(
   initialSource: string,
@@ -15,13 +20,10 @@ export function useTemplateEditor(
   )
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const source = exportAscii(doc.data)
+  const source = toSource(doc)
 
-  const editSource = useCallback((value: string) => {
-    setDoc((prev) => ({
-      ...prev,
-      data: importAscii(value),
-    }))
+  const handleEditSource = useCallback((value: string) => {
+    setDoc((prev) => editSource(prev, value))
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setDoc((prev) => pushHistory(prev))
@@ -71,7 +73,7 @@ export function useTemplateEditor(
     parsed: doc.data,
     canUndo: doc.history.index > 0,
     canRedo: doc.history.index < doc.history.entries.length - 1,
-    editSource,
+    editSource: handleEditSource,
     paintAt,
     endStroke,
     undo: undoOp,

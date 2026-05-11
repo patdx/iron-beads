@@ -1,5 +1,12 @@
 export type { Layer, DocumentData, Document } from './types'
-export { createDocument, pushHistory, undo, redo } from './editor'
+export {
+  createDocument,
+  editSource,
+  toSource,
+  pushHistory,
+  undo,
+  redo,
+} from './editor'
 export {
   paintBead,
   nonEmptyKeys,

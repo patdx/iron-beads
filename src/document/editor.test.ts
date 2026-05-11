@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { createDocument, pushHistory, undo, redo } from './editor'
+import {
+  createDocument,
+  editSource,
+  toSource,
+  pushHistory,
+  undo,
+  redo,
+} from './editor'
 import { paintBead } from './operations'
 import { importAscii } from './import-ascii'
 
@@ -187,5 +194,61 @@ describe('MAX_HISTORY enforcement', () => {
 
     expect(doc.history.entries.length).toBeLessThanOrEqual(200)
     expect(doc.history.index).toBe(doc.history.entries.length - 1)
+  })
+})
+
+describe('editSource', () => {
+  it('returns a new Document with parsed data', () => {
+    const doc = createDocument(SIMPLE)
+    const updated = editSource(
+      doc,
+      '# COLORS\n. empty\nR red\n\n# LAYER 1\n\nR...\n....',
+    )
+    expect(updated.data.palette.R).toBe('red')
+    expect(updated.data.layers[0]!.rows[0]).toBe('R...')
+    expect(updated.history).toBe(doc.history)
+  })
+
+  it('preserves history', () => {
+    const doc = createDocument(SIMPLE)
+    expect(editSource(doc, SIMPLE).history.entries).toHaveLength(1)
+  })
+})
+
+describe('toSource', () => {
+  it('serializes document data to ascii', () => {
+    const doc = createDocument(SIMPLE)
+    const source = toSource(doc)
+    expect(source).toContain('# COLORS')
+    expect(source).toContain('Y yellow')
+    expect(source).toContain('# LAYER 1')
+  })
+
+  it('round-trips through editSource → toSource', () => {
+    const input = '# COLORS\n. empty\nR red\n\n# LAYER 1\n\nR.R\n...'
+    const doc = createDocument(input)
+    const source = toSource(doc)
+    const doc2 = editSource(createDocument(), source)
+    expect(doc2.data).toEqual(doc.data)
+  })
+})
+
+describe('round-trip fidelity', () => {
+  it('preserves palette and layer data through the round-trip', () => {
+    const original =
+      '# COLORS\n. empty\nY yellow\nR red\n\n# FRONT\n\nYRY\nRYR\n\n---\n\n# BACK\n\nRYR\nYRY'
+    const doc = createDocument(original)
+    const roundTripped = toSource(doc)
+    const restored = editSource(createDocument(), roundTripped)
+    expect(restored.data).toEqual(doc.data)
+  })
+
+  it('is stable: double round-trip produces the same source', () => {
+    const original =
+      '# COLORS\n. empty\nB blue\n\n# LAYER 1\n\nB.B\n.B.'
+    const doc = createDocument(original)
+    const first = toSource(doc)
+    const second = toSource(editSource(createDocument(), first))
+    expect(second).toBe(first)
   })
 })

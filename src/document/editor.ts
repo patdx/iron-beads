@@ -1,6 +1,7 @@
 import type { Document, DocumentData } from './types'
 import { toBinary, fromBinary } from './binary-codec'
 import { importAscii } from './import-ascii'
+import { exportAscii } from './export-ascii'
 
 const MAX_HISTORY = 200
 
@@ -31,6 +32,14 @@ export function createDocument(input?: DocumentData | string): Document {
       index: 0,
     },
   }
+}
+
+export function editSource(doc: Document, source: string): Document {
+  return { ...doc, data: importAscii(source) }
+}
+
+export function toSource(doc: Document): string {
+  return exportAscii(doc.data)
 }
 
 export function pushHistory(doc: Document): Document {
