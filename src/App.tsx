@@ -9,7 +9,7 @@ import { usePaintStroke } from './hooks/usePaintStroke'
 import { useTemplateEditor } from './hooks/useTemplateEditor'
 import { useShare } from './hooks/useShare'
 import { useZoom } from './hooks/useZoom'
-import { createAppStorage, readHashSource } from './storage'
+import { createAppStorage } from './storage'
 import {
   countBeads,
   clampLayerIndex,
@@ -17,6 +17,7 @@ import {
 } from './document'
 import { DOMFileIO, BLANK_SOURCE, INITIAL_SESSION } from './io'
 import type { SessionState } from './io'
+import { BrowserShareLink } from './share'
 import './styles.css'
 
 const DEFAULT_FILE = `# COLORS
@@ -74,6 +75,7 @@ C gold
 
 const storage = createAppStorage(DEFAULT_FILE)
 const fileIO = new DOMFileIO()
+const shareLink = new BrowserShareLink()
 
 function resetSession(): SessionState {
   return { ...INITIAL_SESSION }
@@ -94,7 +96,7 @@ export default function App() {
   } = useTemplateEditor(initialSource, storage)
 
   const { shareUrl, qrSvg, printQrSvg, copied, copyToClipboard } =
-    useShare(parsed)
+    useShare(parsed, shareLink)
 
   const [notes, setNotes] = useState(() => storage.getItem('notes') ?? '')
   const [bwMode, setBwMode] = useState(false)
@@ -109,7 +111,7 @@ export default function App() {
   const { zoom, setZoom, onWheel } = useZoom()
 
   useEffect(() => {
-    readHashSource().then((decoded) => {
+    shareLink.readFromHash().then((decoded) => {
       if (decoded) editSource_(decoded)
     })
   }, [])

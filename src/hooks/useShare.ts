@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
-import { encodeShare } from '../storage'
+import type { ShareLink } from '../share'
 import type { DocumentData } from '../document/types'
 
-export function useShare(data: DocumentData) {
+export function useShare(data: DocumentData, shareLink: ShareLink) {
   const [qrSvg, setQrSvg] = useState<string | null>(null)
   const [printQrSvg, setPrintQrSvg] = useState<string | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
@@ -11,7 +11,7 @@ export function useShare(data: DocumentData) {
 
   useEffect(() => {
     const timer = setTimeout(async () => {
-      const encoded = await encodeShare(data)
+      const encoded = await shareLink.encode(data)
       const url = `${window.location.origin}${window.location.pathname}#${encoded}`
       setShareUrl(url)
       try {

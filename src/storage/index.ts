@@ -1,6 +1,6 @@
 export { CompositeStorage } from './composite'
 export { LocalStorageAdapter } from './local-storage'
-export { UrlHashAdapter, encodeShare, decodeShare, readHashSource } from './url-hash'
+export { UrlHashAdapter } from './url-hash'
 export { createAppStorage } from './app-storage'
 export { encodeBase64Url, decodeBase64Url } from './compress'
 export type { StorageBackend } from './types'
