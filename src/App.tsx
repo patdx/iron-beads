@@ -15,6 +15,8 @@ import {
   clampLayerIndex,
   selectValidColor,
 } from './document'
+import { DOMFileIO, BLANK_SOURCE, INITIAL_SESSION } from './io'
+import type { SessionState } from './io'
 import './styles.css'
 
 const DEFAULT_FILE = `# COLORS
@@ -71,6 +73,11 @@ C gold
 `
 
 const storage = createAppStorage(DEFAULT_FILE)
+const fileIO = new DOMFileIO()
+
+function resetSession(): SessionState {
+  return { ...INITIAL_SESSION }
+}
 
 export default function App() {
   const initialSource = storage.getItem('source') ?? DEFAULT_FILE
@@ -131,31 +138,24 @@ export default function App() {
   const handleFileOpen = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      editSource_(String(reader.result))
+    fileIO.readText(file).then((text) => {
+      editSource_(text)
       endStroke()
-    }
-    reader.readAsText(file)
+    })
     e.target.value = ''
   }
 
   const handleSave = () => {
-    const blob = new Blob([source], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'design.beads'
-    a.click()
-    URL.revokeObjectURL(url)
+    fileIO.saveText(source, 'design.beads')
   }
 
   const handleNew = () => {
-    editSource_('# COLORS\n. empty\n\n# LAYER 1\n....\n....\n')
+    editSource_(BLANK_SOURCE)
     endStroke()
-    setNotes('')
-    setSelectedLayerIndex(0)
-    setZoom(100)
+    const s = resetSession()
+    setNotes(s.notes)
+    setSelectedLayerIndex(s.selectedLayerIndex)
+    setZoom(s.zoom)
   }
 
   const { onBeadPointerDown, onBeadPointerEnter } = usePaintStroke(
