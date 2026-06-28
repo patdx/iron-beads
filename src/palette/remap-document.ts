@@ -6,6 +6,54 @@ import type { Rgb } from '../trace/types'
 import { clonePalette } from './presets'
 import { nearestKeyByLab, nearestKeyForColor } from './match'
 import { nextAvailableKeys } from './keys'
+import { snapToPerlerName } from './perler-colors'
+
+export type RemapMappingRow = {
+  oldKey: string
+  oldColor: string
+  newKey: string
+  newColor: string
+  beadCount: number
+}
+
+export function buildRemapMappings(
+  source: DocumentData,
+  preview: DocumentData,
+): RemapMappingRow[] {
+  const keyToNewKey = new Map<string, string>()
+  const beadCounts = new Map<string, number>()
+
+  for (let li = 0; li < source.layers.length; li++) {
+    const srcLayer = source.layers[li]!
+    const prevLayer = preview.layers[li]
+    if (!prevLayer) continue
+    for (let ri = 0; ri < srcLayer.rows.length; ri++) {
+      const srcRow = srcLayer.rows[ri]!
+      const prevRow = prevLayer.rows[ri] ?? ''
+      for (let ci = 0; ci < srcRow.length; ci++) {
+        const srcCell = srcRow[ci]!
+        if (srcCell === '.') continue
+        beadCounts.set(srcCell, (beadCounts.get(srcCell) ?? 0) + 1)
+        const prevCell = prevRow[ci] ?? '.'
+        if (!keyToNewKey.has(srcCell)) keyToNewKey.set(srcCell, prevCell)
+      }
+    }
+  }
+
+  const rows: RemapMappingRow[] = []
+  for (const [oldKey, beadCount] of beadCounts) {
+    const newKey = keyToNewKey.get(oldKey) ?? oldKey
+    rows.push({
+      oldKey,
+      oldColor: source.palette[oldKey] ?? 'unknown',
+      newKey,
+      newColor: preview.palette[newKey] ?? 'unknown',
+      beadCount,
+    })
+  }
+  rows.sort((a, b) => a.oldKey.localeCompare(b.oldKey))
+  return rows
+}
 
 function remapLayers(
   data: DocumentData,
@@ -168,7 +216,7 @@ export function reduceColorCount(
       g: Math.round(g / n),
       b: Math.round(b / n),
     })
-    newPalette[newKey] = centroid
+    newPalette[newKey] = snapToPerlerName(centroid, resolver)
 
     for (const { key } of cluster) {
       keyMapping[key] = newKey

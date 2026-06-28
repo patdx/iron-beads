@@ -1157,6 +1157,62 @@ body {
   height: 12px;
 }
 
+.remap-mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.remap-mapping-table th {
+  text-align: left;
+  font-weight: 600;
+  color: #666;
+  padding: 4px 6px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.remap-mapping-table td {
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+.remap-mapping-table .palette-swatch {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+}
+
+.remap-mapping-key {
+  font-weight: 600;
+  width: 1.5em;
+}
+
+.remap-mapping-arrow {
+  color: #999;
+  text-align: center;
+  width: 1.5em;
+}
+
+.remap-mapping-count {
+  text-align: right;
+  color: #666;
+}
+
+.remap-mapping-changed {
+  background: #fff8e6;
+}
+
+.palette-rename-key {
+  flex: 0 0 28px;
+  width: 28px;
+  text-align: center;
+  font-family: monospace;
+  padding: 0 2px;
+}
+
 /* ---- RESPONSIVE ---- */
 @media (max-width: 900px) {
   .left-panel { width: 220px; }

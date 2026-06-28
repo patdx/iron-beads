@@ -5,6 +5,7 @@ import {
   updatePaletteColor,
   addPaletteColor,
   removePaletteColor,
+  renamePaletteKey,
   countKeyUsage,
 } from '../palette'
 import DeleteColorModal, { defaultReplacement } from './DeleteColorModal'
@@ -104,6 +105,8 @@ export default function RightPanel({
   const [addValue, setAddValue] = useState('#808080')
   const [deleteKey, setDeleteKey] = useState<string | null>(null)
   const [deleteReplacement, setDeleteReplacement] = useState('.')
+  const [renamingKey, setRenamingKey] = useState<string | null>(null)
+  const [renameNewKey, setRenameNewKey] = useState('')
 
   useEffect(() => {
     setResizeW(String(docDims.width || GRID_MIN))
@@ -139,6 +142,36 @@ export default function RightPanel({
   }, [editingKey, editValue, parsed, onPaletteUpdate])
 
   const cancelEdit = useCallback(() => setEditingKey(null), [])
+
+  const startRename = useCallback((key: string) => {
+    setRenamingKey(key)
+    setRenameNewKey('')
+  }, [])
+
+  const saveRename = useCallback(() => {
+    if (!renamingKey) return
+    const newKey = renameNewKey.trim().toUpperCase()
+    if (!newKey) {
+      setRenamingKey(null)
+      return
+    }
+    try {
+      onPaletteUpdate(renamePaletteKey(parsed, renamingKey, newKey))
+      if (activeColor === renamingKey) onActiveColorChange(newKey)
+      setRenamingKey(null)
+    } catch {
+      // invalid or taken key — keep form open
+    }
+  }, [
+    renamingKey,
+    renameNewKey,
+    parsed,
+    onPaletteUpdate,
+    activeColor,
+    onActiveColorChange,
+  ])
+
+  const cancelRename = useCallback(() => setRenamingKey(null), [])
 
   const handleAddColor = useCallback(() => {
     const value = addValue.trim()
@@ -242,7 +275,28 @@ export default function RightPanel({
                   background: key === '.' ? '#fff' : color,
                 }}
               />
-              <span className="palette-key">{key}</span>
+              <span className="palette-key">
+                {renamingKey === key ? (
+                  <input
+                    type="text"
+                    className="palette-edit-input palette-rename-key"
+                    maxLength={1}
+                    value={renameNewKey}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      setRenameNewKey(e.target.value.toUpperCase())
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveRename()
+                      if (e.key === 'Escape') cancelRename()
+                    }}
+                    onBlur={saveRename}
+                    autoFocus
+                  />
+                ) : (
+                  key
+                )}
+              </span>
               {editingKey === key ? (
                 <div
                   className="palette-row-edit"
@@ -280,11 +334,19 @@ export default function RightPanel({
                   )}
                 </>
               )}
-              {key !== '.' && editingKey !== key && (
+              {key !== '.' && editingKey !== key && renamingKey !== key && (
                 <div
                   className="palette-row-actions"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  <button
+                    type="button"
+                    className="palette-action-btn"
+                    title="Rename key"
+                    onClick={() => startRename(key)}
+                  >
+                    A
+                  </button>
                   <button
                     type="button"
                     className="palette-action-btn"
@@ -565,6 +627,7 @@ export default function RightPanel({
         presetId={remapPresetId}
         colorCount={remapColorCount}
         sourceColorCount={remapSourceColorCount}
+        source={parsed}
         preview={remapPreview}
         isPreviewStale={remapPreviewStale}
         isPending={remapPending}

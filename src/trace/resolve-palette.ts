@@ -8,6 +8,7 @@ import {
   getPalettePreset,
   PALETTE_PRESETS,
   nextAvailableKeys,
+  snapToPerlerName,
 } from '../palette'
 import type { PaletteSourceConfig } from './palette-source-types'
 
@@ -61,7 +62,7 @@ function paletteFromCentroids(
     const newKey = newKeys[0]
     if (!newKey) break
 
-    palette[newKey] = rgbToHex(rgb)
+    palette[newKey] = snapToPerlerName(rgbToHex(rgb), resolver)
     added++
   }
 
@@ -72,6 +73,7 @@ function autoPaletteFromImage(
   sampled: SampledGrid,
   colorCount: number,
   outlineColor: string,
+  resolver: ColorResolver,
 ): Record<string, string> {
   const centroids = extractDominantColors(
     sampled.rgb,
@@ -85,7 +87,7 @@ function autoPaletteFromImage(
   centroids.forEach((rgb, i) => {
     const key = keys[i]
     if (!key) return
-    palette[key] = rgbToHex(rgb)
+    palette[key] = snapToPerlerName(rgbToHex(rgb), resolver)
   })
 
   return palette
@@ -111,7 +113,12 @@ export function resolveTracePalette(
       if (!sampled) {
         return ensureOutlineKey(clonePalette(documentPalette), outlineColor)
       }
-      return autoPaletteFromImage(sampled, config.autoColorCount, outlineColor)
+      return autoPaletteFromImage(
+        sampled,
+        config.autoColorCount,
+        outlineColor,
+        resolver,
+      )
     }
 
     case 'extend': {

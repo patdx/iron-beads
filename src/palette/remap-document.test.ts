@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { StaticColorResolver } from '../color/color-resolver'
-import { remapToPalette, reduceColorCount } from './remap-document'
+import { remapToPalette, reduceColorCount, buildRemapMappings } from './remap-document'
 import { getPalettePreset } from './presets'
 
 const resolver = new StaticColorResolver({
@@ -63,5 +63,29 @@ describe('reduceColorCount', () => {
       layers: [{ name: 'L1', rows: ['RG'] }],
     }
     expect(reduceColorCount(small, 3, resolver)).toEqual(small)
+  })
+
+  it('snaps reduced centroid colors to Perler names when close', () => {
+    const result = reduceColorCount(document, 2, resolver)
+    for (const value of Object.values(result.palette)) {
+      if (value === 'empty') continue
+      expect(value.startsWith('#') || /^[a-z]+$/.test(value)).toBe(true)
+    }
+  })
+})
+
+describe('buildRemapMappings', () => {
+  it('lists per-key mappings and bead counts', () => {
+    const preset = getPalettePreset('basic')!.palette
+    const preview = remapToPalette(document, preset, resolver)
+    const rows = buildRemapMappings(document, preview)
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) {
+      expect(row.beadCount).toBeGreaterThan(0)
+      expect(row.oldKey).toBeTruthy()
+      expect(row.newKey).toBeTruthy()
+    }
+    const totalBeads = rows.reduce((n, r) => n + r.beadCount, 0)
+    expect(totalBeads).toBe(4)
   })
 })

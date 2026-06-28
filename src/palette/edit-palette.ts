@@ -42,6 +42,35 @@ export function addPaletteColor(
   }
 }
 
+export function renamePaletteKey(
+  data: DocumentData,
+  oldKey: string,
+  newKey: string,
+): DocumentData {
+  if (oldKey === '.' || !(oldKey in data.palette)) return data
+  if (oldKey === newKey) return data
+  if (newKey === '.' || !isValidPaletteKey(newKey)) {
+    throw new Error(`Invalid palette key: ${newKey}`)
+  }
+  if (newKey in data.palette) {
+    throw new Error(`Key already in palette: ${newKey}`)
+  }
+
+  const value = data.palette[oldKey]!
+  const palette = { ...data.palette }
+  delete palette[oldKey]
+  palette[newKey] = value
+
+  const layers = data.layers.map((layer) => ({
+    ...layer,
+    rows: layer.rows.map((row) =>
+      [...row].map((cell) => (cell === oldKey ? newKey : cell)).join(''),
+    ),
+  }))
+
+  return { palette, layers }
+}
+
 export function removePaletteColor(
   data: DocumentData,
   key: string,

@@ -4,6 +4,7 @@ import {
   updatePaletteColor,
   addPaletteColor,
   removePaletteColor,
+  renamePaletteKey,
 } from './edit-palette'
 import { suggestReplacementKey } from './match'
 
@@ -44,6 +45,56 @@ describe('addPaletteColor', () => {
     expect(() => addPaletteColor(base, { key: '.', value: 'blue' })).toThrow(
       'Cannot use',
     )
+  })
+})
+
+describe('renamePaletteKey', () => {
+  it('moves palette entry and rewrites layer beads', () => {
+    const result = renamePaletteKey(base, 'R', 'A')
+    expect(result.palette.R).toBeUndefined()
+    expect(result.palette.A).toBe('red')
+    expect(result.layers[0]!.rows).toEqual(['AY', 'G.'])
+  })
+
+  it('rejects "." as new key', () => {
+    expect(() => renamePaletteKey(base, 'R', '.')).toThrow('Invalid palette key')
+  })
+
+  it('rejects taken key', () => {
+    expect(() => renamePaletteKey(base, 'R', 'G')).toThrow('already in palette')
+  })
+
+  it('rejects invalid multi-char key', () => {
+    expect(() => renamePaletteKey(base, 'R', 'AB')).toThrow('Invalid palette key')
+  })
+
+  it('no-op for missing old key', () => {
+    expect(renamePaletteKey(base, 'Z', 'A')).toEqual(base)
+  })
+})
+
+describe('renamePaletteKey', () => {
+  it('moves palette entry and rewrites layer beads', () => {
+    const result = renamePaletteKey(base, 'R', 'A')
+    expect(result.palette.R).toBeUndefined()
+    expect(result.palette.A).toBe('red')
+    expect(result.layers[0]!.rows).toEqual(['AY', 'G.'])
+  })
+
+  it('rejects "." as new key', () => {
+    expect(() => renamePaletteKey(base, 'R', '.')).toThrow('Invalid palette key')
+  })
+
+  it('rejects taken key', () => {
+    expect(() => renamePaletteKey(base, 'R', 'G')).toThrow('already in palette')
+  })
+
+  it('rejects invalid multi-char key', () => {
+    expect(() => renamePaletteKey(base, 'R', 'AB')).toThrow('Invalid palette key')
+  })
+
+  it('no-op for missing old key', () => {
+    expect(renamePaletteKey(base, 'Z', 'A')).toEqual(base)
   })
 })
 

@@ -1,7 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, type CSSProperties } from 'react'
 import type { DocumentData } from '../document/types'
 import type { RemapMode } from '../hooks/useRemapPalette'
+import { buildRemapMappings } from '../palette'
+import { DOMColorResolver } from '../color'
 import PalettePresetPicker from './PalettePresetPicker'
+
+const colorResolver = new DOMColorResolver()
 
 type RemapPaletteModalProps = {
   open: boolean
@@ -9,6 +13,7 @@ type RemapPaletteModalProps = {
   presetId: string
   colorCount: number
   sourceColorCount: number
+  source: DocumentData
   preview: DocumentData | null
   isPreviewStale: boolean
   isPending: boolean
@@ -19,12 +24,21 @@ type RemapPaletteModalProps = {
   onColorCountChange: (count: number) => void
 }
 
+function swatchStyle(value: string): CSSProperties {
+  if (value === 'empty') return { background: '#fff' }
+  const resolved = colorResolver.resolve(value)
+  return {
+    background: resolved.startsWith('#') ? resolved : value,
+  }
+}
+
 export default function RemapPaletteModal({
   open,
   mode,
   presetId,
   colorCount,
   sourceColorCount,
+  source,
   preview,
   isPreviewStale,
   isPending,
@@ -42,6 +56,11 @@ export default function RemapPaletteModal({
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [open, onClose])
+
+  const mappings = useMemo(
+    () => (preview ? buildRemapMappings(source, preview) : []),
+    [source, preview],
+  )
 
   if (!open) return null
 
@@ -112,19 +131,56 @@ export default function RemapPaletteModal({
                 <span>
                   Colors: {sourceColorCount} → {previewColorCount}
                 </span>
-                <div className="remap-key-summary">
-                  {Object.entries(preview.palette)
-                    .filter(([k]) => k !== '.')
-                    .map(([key, value]) => (
-                      <span key={key} className="remap-key-chip">
-                        <span
-                          className="palette-swatch"
-                          style={{ background: value }}
-                        />
-                        {key}
-                      </span>
-                    ))}
-                </div>
+                {mappings.length > 0 ? (
+                  <table className="remap-mapping-table">
+                    <thead>
+                      <tr>
+                        <th>Old</th>
+                        <th aria-label="Old color" />
+                        <th aria-label="Arrow" />
+                        <th>New</th>
+                        <th aria-label="New color" />
+                        <th>Beads</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mappings.map((row) => (
+                        <tr
+                          key={row.oldKey}
+                          className={
+                            row.oldKey !== row.newKey ||
+                            row.oldColor !== row.newColor
+                              ? 'remap-mapping-changed'
+                              : undefined
+                          }
+                        >
+                          <td className="remap-mapping-key">{row.oldKey}</td>
+                          <td>
+                            <span
+                              className="palette-swatch"
+                              style={swatchStyle(row.oldColor)}
+                              title={row.oldColor}
+                            />
+                          </td>
+                          <td className="remap-mapping-arrow">→</td>
+                          <td className="remap-mapping-key">{row.newKey}</td>
+                          <td>
+                            <span
+                              className="palette-swatch"
+                              style={swatchStyle(row.newColor)}
+                              title={row.newColor}
+                            />
+                          </td>
+                          <td className="remap-mapping-count">
+                            {row.beadCount}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="palette-modal-preview-hint">No beads to map</p>
+                )}
               </div>
             ) : (
               <p className="palette-modal-preview-hint">No preview</p>
