@@ -261,12 +261,13 @@ export default function RightPanel({
           {Object.entries(parsed.palette).map(([key, color]) => (
             <div
               key={key}
-              className={`palette-row${activeColor === key ? ' selected' : ''}`}
+              className={`palette-row${activeColor === key ? ' selected' : ''}${editingKey === key ? ' editing' : ''}`}
               onClick={() => {
-                if (editingKey !== key) onActiveColorChange(key)
+                if (editingKey === key || renamingKey === key) return
+                onActiveColorChange(key)
               }}
               onDoubleClick={() => {
-                if (key !== '.') startEdit(key, color)
+                if (key !== '.' && editingKey !== key) startEdit(key, color)
               }}
             >
               <div
@@ -301,6 +302,7 @@ export default function RightPanel({
                 <div
                   className="palette-row-edit"
                   onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                 >
                   <input
                     type="text"
@@ -311,7 +313,6 @@ export default function RightPanel({
                       if (e.key === 'Enter') saveEdit()
                       if (e.key === 'Escape') cancelEdit()
                     }}
-                    onBlur={saveEdit}
                     autoFocus
                   />
                   <input
@@ -323,6 +324,22 @@ export default function RightPanel({
                       setEditValue(e.target.value)
                     }}
                   />
+                  <button
+                    type="button"
+                    className="palette-action-btn"
+                    title="Save color"
+                    onClick={saveEdit}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    className="palette-action-btn"
+                    title="Cancel edit"
+                    onClick={cancelEdit}
+                  >
+                    ✕
+                  </button>
                 </div>
               ) : (
                 <>
@@ -338,11 +355,13 @@ export default function RightPanel({
                 <div
                   className="palette-row-actions"
                   onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                 >
                   <button
                     type="button"
                     className="palette-action-btn"
                     title="Rename key"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => startRename(key)}
                   >
                     A
@@ -351,6 +370,7 @@ export default function RightPanel({
                     type="button"
                     className="palette-action-btn"
                     title="Edit color"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => startEdit(key, color)}
                   >
                     ✎
@@ -359,6 +379,7 @@ export default function RightPanel({
                     type="button"
                     className="palette-action-btn palette-action-delete"
                     title="Delete color"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => openDelete(key)}
                   >
                     🗑

@@ -347,6 +347,11 @@ body {
 }
 .palette-row:hover { background: #f5f5f5; }
 .palette-row.selected { background: #eef2ff; }
+.palette-row.editing {
+  cursor: default;
+  background: #fff8e6;
+}
+.palette-row.editing:hover { background: #fff8e6; }
 
 .palette-swatch {
   width: 16px;
@@ -1084,6 +1089,7 @@ body {
   align-items: center;
   gap: 4px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .palette-edit-input {
