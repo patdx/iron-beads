@@ -5,9 +5,9 @@ import {
   TRACE_SAMPLES,
   traceSampleUrl,
   type TraceMode,
-  PALETTE_PRESETS,
   type PaletteSourceConfig,
 } from '../trace'
+import PalettePresetPicker from './PalettePresetPicker'
 
 type TraceControlsProps = {
   width: number
@@ -152,25 +152,10 @@ const TraceControls = memo(function TraceControls({
       </label>
 
       {paletteSource.type === 'preset' && (
-        <label className="trace-field">
-          <span>Kit</span>
-          <select
-            value={paletteSource.presetId}
-            onChange={(e) => onPresetIdChange(e.target.value)}
-          >
-            {PALETTE_PRESETS.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name}
-              </option>
-            ))}
-          </select>
-          <span className="trace-field-hint">
-            {
-              PALETTE_PRESETS.find((p) => p.id === paletteSource.presetId)
-                ?.description
-            }
-          </span>
-        </label>
+        <PalettePresetPicker
+          presetId={paletteSource.presetId}
+          onPresetIdChange={onPresetIdChange}
+        />
       )}
 
       {paletteSource.type === 'auto' && (

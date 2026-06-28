@@ -1,6 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { DocumentData, Dimensions } from '../document'
 import { DOMColorResolver } from '../color'
+import {
+  updatePaletteColor,
+  addPaletteColor,
+  removePaletteColor,
+  countKeyUsage,
+} from '../palette'
+import DeleteColorModal, { defaultReplacement } from './DeleteColorModal'
+import RemapPaletteModal from './RemapPaletteModal'
+import type { RemapMode } from '../hooks/useRemapPalette'
 
 const colorResolver = new DOMColorResolver()
 
@@ -19,6 +28,7 @@ type RightPanelProps = {
   onResizeDocument: (width: number, height: number) => void
   activeColor: string
   onActiveColorChange: (color: string) => void
+  onPaletteUpdate: (data: DocumentData) => void
   layerVisibility: Record<number, boolean>
   onLayerVisibilityChange: (visibility: Record<number, boolean>) => void
   totalBeads: number
@@ -26,6 +36,25 @@ type RightPanelProps = {
   qrSvg: string | null
   copied: boolean
   onCopyToClipboard: () => void
+  remapOpen: boolean
+  remapMode: RemapMode
+  remapPresetId: string
+  remapColorCount: number
+  remapSourceColorCount: number
+  remapPreview: DocumentData | null
+  remapPreviewStale: boolean
+  remapPending: boolean
+  onRemapOpen: () => void
+  onRemapClose: () => void
+  onRemapApply: () => void
+  onRemapModeChange: (mode: RemapMode) => void
+  onRemapPresetIdChange: (id: string) => void
+  onRemapColorCountChange: (count: number) => void
+}
+
+function toPickerHex(value: string): string {
+  const resolved = colorResolver.resolve(value)
+  return resolved.startsWith('#') ? resolved : '#808080'
 }
 
 export default function RightPanel({
@@ -40,6 +69,7 @@ export default function RightPanel({
   onResizeDocument,
   activeColor,
   onActiveColorChange,
+  onPaletteUpdate,
   layerVisibility,
   onLayerVisibilityChange,
   totalBeads,
@@ -47,11 +77,33 @@ export default function RightPanel({
   qrSvg,
   copied,
   onCopyToClipboard,
+  remapOpen,
+  remapMode,
+  remapPresetId,
+  remapColorCount,
+  remapSourceColorCount,
+  remapPreview,
+  remapPreviewStale,
+  remapPending,
+  onRemapOpen,
+  onRemapClose,
+  onRemapApply,
+  onRemapModeChange,
+  onRemapPresetIdChange,
+  onRemapColorCountChange,
 }: RightPanelProps) {
   const isLayerVisible = (i: number) => layerVisibility[i] !== false
 
   const [resizeW, setResizeW] = useState(String(docDims.width || GRID_MIN))
   const [resizeH, setResizeH] = useState(String(docDims.height || GRID_MIN))
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [editHex, setEditHex] = useState('#808080')
+  const [addingColor, setAddingColor] = useState(false)
+  const [addKey, setAddKey] = useState('')
+  const [addValue, setAddValue] = useState('#808080')
+  const [deleteKey, setDeleteKey] = useState<string | null>(null)
+  const [deleteReplacement, setDeleteReplacement] = useState('.')
 
   useEffect(() => {
     setResizeW(String(docDims.width || GRID_MIN))
@@ -69,6 +121,86 @@ export default function RightPanel({
     onResizeDocument(w, h)
   }
 
+  const startEdit = useCallback((key: string, value: string) => {
+    setEditingKey(key)
+    setEditValue(value)
+    setEditHex(toPickerHex(value))
+  }, [])
+
+  const saveEdit = useCallback(() => {
+    if (!editingKey) return
+    const trimmed = editValue.trim()
+    if (!trimmed) {
+      setEditingKey(null)
+      return
+    }
+    onPaletteUpdate(updatePaletteColor(parsed, editingKey, trimmed))
+    setEditingKey(null)
+  }, [editingKey, editValue, parsed, onPaletteUpdate])
+
+  const cancelEdit = useCallback(() => setEditingKey(null), [])
+
+  const handleAddColor = useCallback(() => {
+    const value = addValue.trim()
+    if (!value) return
+    try {
+      const key = addKey.trim() || undefined
+      onPaletteUpdate(addPaletteColor(parsed, { key, value }))
+      setAddingColor(false)
+      setAddKey('')
+      setAddValue('#808080')
+    } catch {
+      // invalid key — keep form open
+    }
+  }, [addKey, addValue, parsed, onPaletteUpdate])
+
+  const openDelete = useCallback(
+    (key: string) => {
+      const usage = countKeyUsage(parsed, key)
+      if (usage === 0) {
+        onPaletteUpdate(removePaletteColor(parsed, key, '.', colorResolver))
+        if (activeColor === key) {
+          const remaining = Object.keys(parsed.palette).filter(
+            (k) => k !== key && k !== '.',
+          )
+          onActiveColorChange(remaining[0] ?? '.')
+        }
+        return
+      }
+      setDeleteKey(key)
+      setDeleteReplacement(defaultReplacement(key, parsed.palette, colorResolver))
+    },
+    [parsed, onPaletteUpdate, activeColor, onActiveColorChange],
+  )
+
+  const confirmDelete = useCallback(() => {
+    if (!deleteKey) return
+    onPaletteUpdate(
+      removePaletteColor(parsed, deleteKey, deleteReplacement, colorResolver),
+    )
+    if (activeColor === deleteKey) {
+      onActiveColorChange(deleteReplacement === '.' ? '.' : deleteReplacement)
+    }
+    setDeleteKey(null)
+  }, [
+    deleteKey,
+    deleteReplacement,
+    parsed,
+    onPaletteUpdate,
+    activeColor,
+    onActiveColorChange,
+  ])
+
+  const deleteOptions =
+    deleteKey == null
+      ? []
+      : [
+          { key: '.', value: 'empty' },
+          ...Object.entries(parsed.palette)
+            .filter(([k]) => k !== '.' && k !== deleteKey)
+            .map(([key, value]) => ({ key, value })),
+        ]
+
   const canMoveUp = selectedLayerIndex > 0
   const canMoveDown =
     selectedLayerIndex >= 0 && selectedLayerIndex < parsed.layers.length - 1
@@ -79,16 +211,30 @@ export default function RightPanel({
       <div className="panel-scroll">
         <div className="section">
           <div className="section-title">
-            Palette
-            <span className="section-count">
-              {Object.keys(parsed.palette).length}
+            <span>
+              Palette
+              <span className="section-count">
+                {Object.keys(parsed.palette).length}
+              </span>
             </span>
+            <button
+              type="button"
+              className="palette-remap-btn"
+              onClick={onRemapOpen}
+            >
+              Remap…
+            </button>
           </div>
           {Object.entries(parsed.palette).map(([key, color]) => (
             <div
               key={key}
               className={`palette-row${activeColor === key ? ' selected' : ''}`}
-              onClick={() => onActiveColorChange(key)}
+              onClick={() => {
+                if (editingKey !== key) onActiveColorChange(key)
+              }}
+              onDoubleClick={() => {
+                if (key !== '.') startEdit(key, color)
+              }}
             >
               <div
                 className="palette-swatch"
@@ -97,17 +243,127 @@ export default function RightPanel({
                 }}
               />
               <span className="palette-key">{key}</span>
-              <span className="palette-name">{color}</span>
-              {key !== '.' && (
-                <span className="palette-hex">
-                  {colorResolver.resolve(color)}
-                </span>
+              {editingKey === key ? (
+                <div
+                  className="palette-row-edit"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="text"
+                    className="palette-edit-input"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveEdit()
+                      if (e.key === 'Escape') cancelEdit()
+                    }}
+                    onBlur={saveEdit}
+                    autoFocus
+                  />
+                  <input
+                    type="color"
+                    className="palette-edit-color"
+                    value={editHex}
+                    onChange={(e) => {
+                      setEditHex(e.target.value)
+                      setEditValue(e.target.value)
+                    }}
+                  />
+                </div>
+              ) : (
+                <>
+                  <span className="palette-name">{color}</span>
+                  {key !== '.' && (
+                    <span className="palette-hex">
+                      {colorResolver.resolve(color)}
+                    </span>
+                  )}
+                </>
+              )}
+              {key !== '.' && editingKey !== key && (
+                <div
+                  className="palette-row-actions"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    className="palette-action-btn"
+                    title="Edit color"
+                    onClick={() => startEdit(key, color)}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    className="palette-action-btn palette-action-delete"
+                    title="Delete color"
+                    onClick={() => openDelete(key)}
+                  >
+                    🗑
+                  </button>
+                </div>
               )}
             </div>
           ))}
+
+          {addingColor ? (
+            <div className="palette-row palette-add-form">
+              <input
+                type="text"
+                className="palette-edit-input palette-add-key"
+                placeholder="Key"
+                maxLength={1}
+                value={addKey}
+                onChange={(e) => setAddKey(e.target.value.toUpperCase())}
+              />
+              <input
+                type="text"
+                className="palette-edit-input"
+                placeholder="#hex or name"
+                value={addValue}
+                onChange={(e) => setAddValue(e.target.value)}
+              />
+              <input
+                type="color"
+                className="palette-edit-color"
+                value={
+                  addValue.startsWith('#') ? addValue : toPickerHex(addValue)
+                }
+                onChange={(e) => setAddValue(e.target.value)}
+              />
+              <button
+                type="button"
+                className="palette-action-btn"
+                onClick={handleAddColor}
+              >
+                ✓
+              </button>
+              <button
+                type="button"
+                className="palette-action-btn"
+                onClick={() => setAddingColor(false)}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="palette-add-btn"
+              onClick={() => setAddingColor(true)}
+            >
+              + Add color
+            </button>
+          )}
+
           <div
             className="active-color-bar"
-            style={{ background: parsed.palette[activeColor] || '#eee' }}
+            style={{
+              background:
+                activeColor === '.'
+                  ? '#fff'
+                  : parsed.palette[activeColor] || '#eee',
+            }}
           />
         </div>
 
@@ -302,6 +558,34 @@ export default function RightPanel({
           Auto-saved to this device
         </div>
       </div>
+
+      <RemapPaletteModal
+        open={remapOpen}
+        mode={remapMode}
+        presetId={remapPresetId}
+        colorCount={remapColorCount}
+        sourceColorCount={remapSourceColorCount}
+        preview={remapPreview}
+        isPreviewStale={remapPreviewStale}
+        isPending={remapPending}
+        onClose={onRemapClose}
+        onApply={onRemapApply}
+        onModeChange={onRemapModeChange}
+        onPresetIdChange={onRemapPresetIdChange}
+        onColorCountChange={onRemapColorCountChange}
+      />
+
+      <DeleteColorModal
+        open={deleteKey != null}
+        keyToDelete={deleteKey ?? ''}
+        colorValue={deleteKey ? (parsed.palette[deleteKey] ?? '') : ''}
+        beadCount={deleteKey ? countKeyUsage(parsed, deleteKey) : 0}
+        replacementOptions={deleteOptions}
+        replacement={deleteReplacement}
+        onReplacementChange={setDeleteReplacement}
+        onClose={() => setDeleteKey(null)}
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }

@@ -327,6 +327,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .section-count {
@@ -992,6 +993,168 @@ body {
   padding: 12px 16px;
   border-top: 1px solid #e8e8e8;
   background: #fafafa;
+}
+
+/* ---- PALETTE MODALS & EDITOR ---- */
+.palette-modal {
+  width: min(560px, 100%);
+  max-height: min(80vh, 520px);
+}
+
+.palette-modal-sm {
+  width: min(420px, 100%);
+}
+
+.palette-modal-body {
+  flex-direction: column;
+}
+
+.palette-modal-preview {
+  flex: 1;
+  min-height: 80px;
+}
+
+.palette-modal-preview-hint {
+  font-size: 12px;
+  color: #888;
+  margin: 0;
+}
+
+.palette-modal-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: #444;
+}
+
+.palette-remap-btn {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 2px 6px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+}
+.palette-remap-btn:hover {
+  background: #f5f5f5;
+  color: #222;
+}
+
+.palette-row-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.palette-row:hover .palette-row-actions,
+.palette-row.selected .palette-row-actions {
+  opacity: 1;
+}
+
+.palette-action-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  color: #666;
+  padding: 0;
+}
+.palette-action-btn:hover {
+  background: #e8e8e8;
+  color: #222;
+}
+.palette-action-delete:hover {
+  background: #fee;
+  color: #c00;
+}
+
+.palette-row-edit {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.palette-edit-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 2px 4px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+.palette-edit-color {
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.palette-add-btn {
+  width: 100%;
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  border: 1px dashed #ccc;
+  border-radius: 3px;
+  background: #fafafa;
+  color: #666;
+  cursor: pointer;
+}
+.palette-add-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.palette-add-form {
+  flex-wrap: wrap;
+  cursor: default;
+}
+.palette-add-form:hover {
+  background: transparent;
+}
+
+.palette-add-key {
+  flex: 0 0 28px;
+  text-align: center;
+  font-family: monospace;
+}
+
+.remap-key-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.remap-key-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  padding: 2px 6px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.remap-key-chip .palette-swatch {
+  width: 12px;
+  height: 12px;
 }
 
 /* ---- RESPONSIVE ---- */

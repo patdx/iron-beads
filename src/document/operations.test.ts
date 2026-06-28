@@ -122,6 +122,10 @@ describe('selectValidColor', () => {
     expect(selectValidColor(base, 'R')).toBe('R')
   })
 
+  it('allows empty key when present in palette', () => {
+    expect(selectValidColor(base, '.')).toBe('.')
+  })
+
   it('returns first non-empty key when current is gone', () => {
     expect(selectValidColor(base, 'B')).toBe('R')
   })

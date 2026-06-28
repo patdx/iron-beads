@@ -7,29 +7,11 @@ import {
   clonePalette,
   getPalettePreset,
   PALETTE_PRESETS,
-} from './palette-presets'
+  nextAvailableKeys,
+} from '../palette'
 import type { PaletteSourceConfig } from './palette-source-types'
 
-const KEY_POOL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('')
 const MATCH_DELTA_E = 14
-
-function usedKeys(palette: Record<string, string>): Set<string> {
-  return new Set(Object.keys(palette))
-}
-
-function nextAvailableKeys(
-  palette: Record<string, string>,
-  count: number,
-): string[] {
-  const used = usedKeys(palette)
-  const keys: string[] = []
-  for (const key of KEY_POOL) {
-    if (key === '.' || used.has(key)) continue
-    keys.push(key)
-    if (keys.length >= count) break
-  }
-  return keys
-}
 
 function nearestPaletteKey(
   rgb: Rgb,

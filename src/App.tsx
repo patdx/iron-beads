@@ -6,11 +6,14 @@ import LeftPanel from './components/LeftPanel'
 import RightPanel from './components/RightPanel'
 import PrintView from './components/PrintView'
 import TraceModal from './components/TraceModal'
+import NewProjectModal from './components/NewProjectModal'
 import { usePaintStroke } from './hooks/usePaintStroke'
 import { useTemplateEditor } from './hooks/useTemplateEditor'
 import { useShare } from './hooks/useShare'
 import { useZoom } from './hooks/useZoom'
 import { useTrace } from './hooks/useTrace'
+import { useNewProject } from './hooks/useNewProject'
+import { useRemapPalette } from './hooks/useRemapPalette'
 import { createAppStorage } from './storage'
 import {
   countBeads,
@@ -19,9 +22,10 @@ import {
   exportAscii,
 } from './document'
 import { DOMColorResolver } from './color'
-import { DOMFileIO, BLANK_SOURCE, INITIAL_SESSION } from './io'
+import { DOMFileIO, INITIAL_SESSION } from './io'
 import type { SessionState } from './io'
 import type { DocumentData } from './document'
+import { createBlankDocument, type BlankProjectOptions } from './palette'
 import { BrowserShareLink } from './share'
 import './styles.css'
 
@@ -165,14 +169,42 @@ export default function App() {
     fileIO.saveText(source, 'design.beads')
   }
 
-  const handleNew = () => {
-    editSource_(BLANK_SOURCE)
-    endStroke()
-    const s = resetSession()
-    setNotes(s.notes)
-    setSelectedLayerIndex(s.selectedLayerIndex)
-    setZoom(s.zoom)
-  }
+  const handleNewApply = useCallback(
+    (options: BlankProjectOptions) => {
+      const doc = createBlankDocument(options)
+      editSource_(exportAscii(doc))
+      endStroke()
+      const s = resetSession()
+      setNotes(s.notes)
+      setSelectedLayerIndex(s.selectedLayerIndex)
+      setZoom(s.zoom)
+      const keys = Object.keys(doc.palette).filter((k) => k !== '.')
+      setActiveColor(keys[0] ?? '.')
+    },
+    [editSource_, endStroke],
+  )
+
+  const newProject = useNewProject(handleNewApply)
+
+  const handlePaletteUpdate = useCallback(
+    (data: DocumentData) => {
+      editSource_(exportAscii(data))
+      endStroke()
+      setActiveColor((prev) => selectValidColor(data, prev))
+    },
+    [editSource_, endStroke],
+  )
+
+  const handleRemapApply = useCallback(
+    (data: DocumentData) => {
+      editSource_(exportAscii(data))
+      endStroke()
+      setActiveColor((prev) => selectValidColor(data, prev))
+    },
+    [editSource_, endStroke],
+  )
+
+  const remap = useRemapPalette(parsed, colorResolver, handleRemapApply)
 
   const { onBeadPointerDown, onBeadPointerEnter } = usePaintStroke(
     activeColor,
@@ -238,7 +270,7 @@ export default function App() {
           canRedo={canRedo}
           onUndo={editorUndo}
           onRedo={editorRedo}
-          onNew={handleNew}
+          onNew={newProject.openModal}
           onOpen={() => fileInputRef.current?.click()}
           onSave={handleSave}
           onTrace={trace.openTrace}
@@ -356,6 +388,7 @@ export default function App() {
             onResizeDocument={resizeDocument}
             activeColor={activeColor}
             onActiveColorChange={setActiveColor}
+            onPaletteUpdate={handlePaletteUpdate}
             layerVisibility={layerVisibility}
             onLayerVisibilityChange={setLayerVisibility}
             totalBeads={totalBeads}
@@ -363,6 +396,20 @@ export default function App() {
             qrSvg={qrSvg}
             copied={copied}
             onCopyToClipboard={copyToClipboard}
+            remapOpen={remap.open}
+            remapMode={remap.mode}
+            remapPresetId={remap.presetId}
+            remapColorCount={remap.colorCount}
+            remapSourceColorCount={remap.sourceColorCount}
+            remapPreview={remap.preview}
+            remapPreviewStale={remap.isPreviewStale}
+            remapPending={remap.isPending}
+            onRemapOpen={remap.openModal}
+            onRemapClose={remap.closeModal}
+            onRemapApply={remap.apply}
+            onRemapModeChange={remap.setMode}
+            onRemapPresetIdChange={remap.setPresetId}
+            onRemapColorCountChange={remap.setColorCount}
           />
         </div>
 
@@ -372,7 +419,9 @@ export default function App() {
           </span>
           <span className="bottom-item">Click bead to paint</span>
           <span className="bottom-item">Drag to fill</span>
-          <span className="bottom-item">Shift+Click to erase</span>
+          <span className="bottom-item">
+            Select empty or Shift+Click to erase
+          </span>
           <span className="bottom-item">Scroll to zoom</span>
         </div>
 
@@ -383,6 +432,20 @@ export default function App() {
           printQrSvg={printQrSvg}
         />
       </div>
+
+      <NewProjectModal
+        open={newProject.open}
+        kind={newProject.kind}
+        presetId={newProject.presetId}
+        gridSize={newProject.gridSize}
+        gridMin={newProject.gridMin}
+        gridMax={newProject.gridMax}
+        onClose={newProject.closeModal}
+        onApply={newProject.apply}
+        onKindChange={newProject.setKind}
+        onPresetIdChange={newProject.setPresetId}
+        onGridSizeChange={newProject.setGridSize}
+      />
 
       <TraceModal
         open={trace.open}

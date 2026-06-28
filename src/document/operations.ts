@@ -55,8 +55,8 @@ export function selectValidColor(
   data: DocumentData,
   current: string,
 ): string {
+  if (current in data.palette) return current
   const keys = nonEmptyKeys(data)
   if (keys.length === 0) return current
-  if (keys.includes(current)) return current
   return keys[0]!
 }
