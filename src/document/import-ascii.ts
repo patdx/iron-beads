@@ -1,4 +1,5 @@
 import type { Layer, DocumentData } from './types'
+import { normalizeLayers } from './layer-ops'
 
 export function importAscii(input: string): DocumentData {
   const lines = input.split('\n')
@@ -37,5 +38,5 @@ export function importAscii(input: string): DocumentData {
     }
   }
 
-  return { palette, layers }
+  return normalizeLayers({ palette, layers })
 }

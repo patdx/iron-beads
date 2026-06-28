@@ -1,22 +1,27 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import BeadGrid from './components/BeadGrid'
 import Preview3D from './Preview3D'
 import Toolbar from './components/Toolbar'
 import LeftPanel from './components/LeftPanel'
 import RightPanel from './components/RightPanel'
 import PrintView from './components/PrintView'
+import TraceModal from './components/TraceModal'
 import { usePaintStroke } from './hooks/usePaintStroke'
 import { useTemplateEditor } from './hooks/useTemplateEditor'
 import { useShare } from './hooks/useShare'
 import { useZoom } from './hooks/useZoom'
+import { useTrace } from './hooks/useTrace'
 import { createAppStorage } from './storage'
 import {
   countBeads,
   clampLayerIndex,
   selectValidColor,
+  exportAscii,
 } from './document'
+import { DOMColorResolver } from './color'
 import { DOMFileIO, BLANK_SOURCE, INITIAL_SESSION } from './io'
 import type { SessionState } from './io'
+import type { DocumentData } from './document'
 import { BrowserShareLink } from './share'
 import './styles.css'
 
@@ -76,6 +81,7 @@ C gold
 const storage = createAppStorage(DEFAULT_FILE)
 const fileIO = new DOMFileIO()
 const shareLink = new BrowserShareLink()
+const colorResolver = new DOMColorResolver()
 
 function resetSession(): SessionState {
   return { ...INITIAL_SESSION }
@@ -86,6 +92,7 @@ export default function App() {
   const {
     source,
     parsed,
+    documentDimensions: docDims,
     canUndo,
     canRedo,
     editSource: editSource_,
@@ -93,10 +100,17 @@ export default function App() {
     endStroke,
     undo: editorUndo,
     redo: editorRedo,
+    addLayer,
+    deleteLayer,
+    moveLayer,
+    shiftLayer,
+    resizeDocument,
   } = useTemplateEditor(initialSource, storage)
 
-  const { shareUrl, qrSvg, printQrSvg, copied, copyToClipboard } =
-    useShare(parsed, shareLink)
+  const { shareUrl, qrSvg, printQrSvg, copied, copyToClipboard } = useShare(
+    parsed,
+    shareLink,
+  )
 
   const [notes, setNotes] = useState(() => storage.getItem('notes') ?? '')
   const [bwMode, setBwMode] = useState(false)
@@ -170,6 +184,44 @@ export default function App() {
 
   const isLayerVisible = (i: number) => layerVisibility[i] !== false
 
+  const handleTraceApply = useCallback(
+    (merged: DocumentData) => {
+      editSource_(exportAscii(merged))
+      endStroke()
+      setSelectedLayerIndex(merged.layers.length - 1)
+    },
+    [editSource_, endStroke],
+  )
+
+  const handleAddLayer = useCallback(() => {
+    addLayer()
+    setSelectedLayerIndex(parsed.layers.length)
+  }, [addLayer, parsed.layers.length])
+
+  const handleDeleteLayer = useCallback(
+    (index: number) => {
+      const nextCount = parsed.layers.length - 1
+      deleteLayer(index)
+      setSelectedLayerIndex((prev) => {
+        if (nextCount <= 0) return 0
+        if (prev > index) return prev - 1
+        if (prev >= nextCount) return nextCount - 1
+        return prev
+      })
+    },
+    [deleteLayer, parsed.layers.length],
+  )
+
+  const handleMoveLayer = useCallback(
+    (from: number, to: number) => {
+      moveLayer(from, to)
+      setSelectedLayerIndex(to)
+    },
+    [moveLayer],
+  )
+
+  const trace = useTrace(parsed, colorResolver, handleTraceApply, docDims.width)
+
   return (
     <>
       <input
@@ -189,6 +241,7 @@ export default function App() {
           onNew={handleNew}
           onOpen={() => fileInputRef.current?.click()}
           onSave={handleSave}
+          onTrace={trace.openTrace}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           bwMode={bwMode}
@@ -208,13 +261,21 @@ export default function App() {
               <div className="layer-tabs">
                 {parsed.layers.map((layer, i) => (
                   <button
-                    key={layer.name}
+                    key={`${layer.name}-${i}`}
                     className={`ltab${safeLayerIndex === i ? ' active' : ''}`}
                     onClick={() => setSelectedLayerIndex(i)}
                   >
                     {layer.name}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  className="ltab ltab-add"
+                  title="Add layer"
+                  onClick={handleAddLayer}
+                >
+                  +
+                </button>
               </div>
               <div className="zoom-controls">
                 <button
@@ -255,9 +316,7 @@ export default function App() {
               {viewMode === 'iso' ? (
                 <div className="iso-wrap">
                   <Preview3D
-                    layers={parsed.layers.filter((_, i) =>
-                      isLayerVisible(i),
-                    )}
+                    layers={parsed.layers.filter((_, i) => isLayerVisible(i))}
                     palette={parsed.palette}
                     beadSize={beadSize}
                   />
@@ -287,8 +346,14 @@ export default function App() {
 
           <RightPanel
             parsed={parsed}
+            documentDimensions={docDims}
             selectedLayerIndex={safeLayerIndex}
             onSelectLayer={setSelectedLayerIndex}
+            onAddLayer={handleAddLayer}
+            onDeleteLayer={handleDeleteLayer}
+            onMoveLayer={handleMoveLayer}
+            onShiftLayer={shiftLayer}
+            onResizeDocument={resizeDocument}
             activeColor={activeColor}
             onActiveColorChange={setActiveColor}
             layerVisibility={layerVisibility}
@@ -318,6 +383,32 @@ export default function App() {
           printQrSvg={printQrSvg}
         />
       </div>
+
+      <TraceModal
+        open={trace.open}
+        preview={trace.preview}
+        isPreviewStale={trace.isPreviewStale}
+        isPending={trace.isPending}
+        width={trace.width}
+        mode={trace.mode}
+        edgeThreshold={trace.edgeThreshold}
+        dither={trace.dither}
+        paletteSource={trace.paletteSource}
+        error={trace.error}
+        onClose={trace.closeTrace}
+        onApply={trace.apply}
+        onWidthChange={trace.setWidth}
+        onModeChange={trace.setMode}
+        onEdgeThresholdChange={trace.setEdgeThreshold}
+        onDitherChange={trace.setDither}
+        onPaletteSourceTypeChange={trace.setPaletteSourceType}
+        onPresetIdChange={trace.setPresetId}
+        onAutoColorCountChange={trace.setAutoColorCount}
+        onMaxNewColorsChange={trace.setMaxNewColors}
+        onFile={trace.loadFile}
+        onBlob={trace.loadBlob}
+        onSample={trace.loadSample}
+      />
     </>
   )
 }

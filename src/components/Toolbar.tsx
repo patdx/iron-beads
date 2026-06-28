@@ -6,6 +6,7 @@ type ToolbarProps = {
   onNew: () => void
   onOpen: () => void
   onSave: () => void
+  onTrace: () => void
   viewMode: '2d' | 'iso'
   onViewModeChange: (mode: '2d' | 'iso') => void
   bwMode: boolean
@@ -20,6 +21,7 @@ export default function Toolbar({
   onNew,
   onOpen,
   onSave,
+  onTrace,
   viewMode,
   onViewModeChange,
   bwMode,
@@ -36,6 +38,9 @@ export default function Toolbar({
       </button>
       <button className="tb" onClick={onSave}>
         Save
+      </button>
+      <button className="tb" onClick={onTrace}>
+        Trace
       </button>
       <div className="toolbar-sep" />
       <button className="tb" onClick={onUndo} disabled={!canUndo}>
